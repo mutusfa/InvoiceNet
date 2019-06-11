@@ -1,10 +1,11 @@
-import sys
-import re
-import pickle
-import pandas as pd
-from nltk import ngrams
 import argparse
+import pickle
+import re
+import sys
+
 import datefinder
+from nltk import ngrams
+import pandas as pd
 from tqdm import tqdm
 
 """
@@ -85,20 +86,26 @@ def extract_features(path):
             files[row['files']] = {'lines': {'words': [], 'labels': [], 'ymin': [], 'ymax': []},
                                    'xmin': sys.maxsize, 'ymin': sys.maxsize, 'xmax': 0, 'ymax': 0}
         tokens = row['words'].strip().split(' ')
-        char_length = (row['coords'][2] - row['coords'][0]) / len(row['words'].strip())
+        char_length = (row['coords'][2] - row['coords']
+                       [0]) / len(row['words'].strip())
         token_coords = [{'xmin': row['coords'][0],
                          'xmax': row['coords'][0] + (char_length * len(tokens[0]))}]
         for idx in range(1, len(tokens)):
             token_coords.append({'xmin': token_coords[-1]['xmax'] + char_length,
                                  'xmax': token_coords[-1]['xmax'] + (char_length * (len(tokens[idx])+1))})
-        files[row['files']]['lines']['words'].append({'tokens': tokens, 'coords': token_coords})
+        files[row['files']]['lines']['words'].append(
+            {'tokens': tokens, 'coords': token_coords})
         files[row['files']]['lines']['labels'].append(row['labels'])
         files[row['files']]['lines']['ymin'].append(row['coords'][1])
         files[row['files']]['lines']['ymax'].append(row['coords'][3])
-        files[row['files']]['xmin'] = min(files[row['files']]['xmin'], row['coords'][0])
-        files[row['files']]['ymin'] = min(files[row['files']]['ymin'], row['coords'][1])
-        files[row['files']]['xmax'] = max(files[row['files']]['xmax'], row['coords'][2])
-        files[row['files']]['ymax'] = max(files[row['files']]['ymax'], row['coords'][3])
+        files[row['files']]['xmin'] = min(
+            files[row['files']]['xmin'], row['coords'][0])
+        files[row['files']]['ymin'] = min(
+            files[row['files']]['ymin'], row['coords'][1])
+        files[row['files']]['xmax'] = max(
+            files[row['files']]['xmax'], row['coords'][2])
+        files[row['files']]['ymax'] = max(
+            files[row['files']]['ymax'], row['coords'][3])
 
     del df
 
@@ -158,15 +165,22 @@ def extract_features(path):
                         '[^a-zA-Z\d\ ]', '?', raw_text)))))
                     grams['length'].append(len(' '.join(ngram)))
                     grams['line_size'].append(len(tokens))
-                    grams['position_on_line'].append(tokens.index(ngram[0])/len(tokens))
-                    grams['has_digits'].append(1.0 if bool(re.search(r'\d', raw_text)) else 0.0)
-                    grams['left_margin'].append((token_coords[tokens.index(ngram[0])]['xmin'] - value['xmin']) / page_width)
-                    grams['top_margin'].append((value['lines']['ymin'][i] - value['ymin']) / page_height)
-                    grams['right_margin'].append((token_coords[tokens.index(ngram[-1])]['xmax'] - value['xmin']) / page_width)
-                    grams['bottom_margin'].append((value['lines']['ymax'][i] - value['ymin']) / page_height)
+                    grams['position_on_line'].append(
+                        tokens.index(ngram[0])/len(tokens))
+                    grams['has_digits'].append(1.0 if bool(
+                        re.search(r'\d', raw_text)) else 0.0)
+                    grams['left_margin'].append(
+                        (token_coords[tokens.index(ngram[0])]['xmin'] - value['xmin']) / page_width)
+                    grams['top_margin'].append(
+                        (value['lines']['ymin'][i] - value['ymin']) / page_height)
+                    grams['right_margin'].append(
+                        (token_coords[tokens.index(ngram[-1])]['xmax'] - value['xmin']) / page_width)
+                    grams['bottom_margin'].append(
+                        (value['lines']['ymax'][i] - value['ymin']) / page_height)
                     grams['page_width'].append(page_width)
                     grams['page_height'].append(page_height)
-                    grams['label'].append(label_dict[value['lines']['labels'][i]])
+                    grams['label'].append(
+                        label_dict[value['lines']['labels'][i]])
 
             # Finds the closest N-grams on all 4 sides for each N-gram
             for i in range(num_ngrams, len(grams['raw_text'])):
@@ -206,8 +220,10 @@ def extract_features(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="data/dftrain.pk", help="path to training data")
-    ap.add_argument("--save_as", default="data/features.pk", help="save extracted features with this name")
+    ap.add_argument("--data", default="data/dftrain.pk",
+                    help="path to training data")
+    ap.add_argument("--save_as", default="data/features.pk",
+                    help="save extracted features with this name")
     args = ap.parse_args()
     features = extract_features(args.data)
     features.to_pickle(args.save_as, protocol=3)

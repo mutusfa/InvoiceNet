@@ -1,6 +1,7 @@
 import argparse
-from model import InvoiceNetCloudScan
-from extract_features import extract_features
+
+from invoice_net.model import InvoiceNetCloudScan
+from invoice_net.extract_features import extract_features
 
 
 ap = argparse.ArgumentParser()

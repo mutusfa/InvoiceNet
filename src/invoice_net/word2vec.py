@@ -1,7 +1,8 @@
 import pickle
+
 from gensim.models import Word2Vec
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 
 with open('df_train_api.pk', 'rb') as pklfile:

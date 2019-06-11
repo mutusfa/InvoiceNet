@@ -1,5 +1,6 @@
 import os
 import pickle
+
 import numpy as np
 from keras.models import Model
 from keras.layers import Input, Dense, Dropout, concatenate
@@ -20,7 +21,8 @@ class InvoiceNet:
     def __init__(self, data_handler, config):
         coordinates = Input(shape=(data_handler.train_data['coordinates'].shape[1],),
                             dtype='float32', name='coordinates')
-        words_input = Input(shape=(data_handler.max_length,), dtype='int32', name='words_input')
+        words_input = Input(shape=(data_handler.max_length,),
+                            dtype='int32', name='words_input')
         words = Embedding(data_handler.embeddings.shape[0], data_handler.embeddings.shape[1],
                           weights=[data_handler.embeddings],
                           trainable=False)(words_input)
@@ -57,7 +59,8 @@ class InvoiceNet:
         output = Dense(data_handler.num_classes, activation='softmax')(output)
 
         self.model = Model(inputs=[words_input, coordinates], outputs=[output])
-        self.model.compile(loss='sparse_categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
+        self.model.compile(loss='sparse_categorical_crossentropy',
+                           optimizer='Adam', metrics=['accuracy'])
         # self.model.summary()
         self.data_handler = data_handler
         self.config = config
@@ -74,7 +77,8 @@ class InvoiceNet:
         if not os.path.exists(self.config.model_path):
             os.makedirs(self.config.model_path)
 
-        tensorboard = TensorBoard(log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
+        tensorboard = TensorBoard(
+            log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
         modelcheckpoints = ModelCheckpoint(os.path.join(self.config.checkpoint_dir, "InvoiceNet") +
                                            ".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5",
                                            monitor='val_loss', verbose=0, save_best_only=True,
@@ -94,7 +98,8 @@ class InvoiceNet:
                        shuffle=self.config.shuffle,
                        class_weight=d_class_weights)
 
-        self.model.save_weights(os.path.join(self.config.model_path, "InvoiceNet.model"))
+        self.model.save_weights(os.path.join(
+            self.config.model_path, "InvoiceNet.model"))
 
     def load_weights(self, path):
         """Loads weights from the given model file"""
@@ -136,9 +141,12 @@ class InvoiceNet:
         f1_sum = 0
         f1_count = 0
         for target_label in range(0, max(self.data_handler.train_data['labels'])):
-            precision = self.get_precision(predictions, self.data_handler.train_data['labels'], target_label)
-            recall = self.get_precision(self.data_handler.train_data['labels'], predictions, target_label)
-            f1 = 0 if (precision+recall) == 0 else 2*precision*recall/(precision+recall)
+            precision = self.get_precision(
+                predictions, self.data_handler.train_data['labels'], target_label)
+            recall = self.get_precision(
+                self.data_handler.train_data['labels'], predictions, target_label)
+            f1 = 0 if (precision+recall) == 0 else 2 * \
+                precision*recall/(precision+recall)
             f1_sum += f1
             f1_count += 1
 
@@ -150,7 +158,8 @@ class InvoiceNet:
 class InvoiceNetCloudScan:
 
     def __init__(self, config):
-        features = Input(shape=(config.num_input*5,), dtype='float32', name='features')
+        features = Input(shape=(config.num_input*5,),
+                         dtype='float32', name='features')
 
         if config.num_layers == 2:
             output = Dense(config.num_hidden, activation='relu')(features)
@@ -181,14 +190,16 @@ class InvoiceNetCloudScan:
 
         x_train, y_train = self.prepare_data(data)
 
-        tensorboard = TensorBoard(log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
+        tensorboard = TensorBoard(
+            log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
         modelcheckpoints = ModelCheckpoint(os.path.join(self.config.checkpoint_dir, "InvoiceNetCloudScan") +
                                            ".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5",
                                            monitor='val_loss', verbose=0, save_best_only=True,
                                            save_weights_only=False, mode='auto')
 
         classes = np.unique(data['label'].values)
-        class_weights = compute_class_weight('balanced', classes, data['label'].values)
+        class_weights = compute_class_weight(
+            'balanced', classes, data['label'].values)
         d_class_weights = dict(enumerate(class_weights))
 
         self.model.fit([x_train], y_train,
@@ -200,7 +211,8 @@ class InvoiceNetCloudScan:
                        shuffle=self.config.shuffle,
                        class_weight=d_class_weights)
 
-        self.model.save_weights(os.path.join(self.config.model_path, "InvoiceNetCloudScan.model"))
+        self.model.save_weights(os.path.join(
+            self.config.model_path, "InvoiceNetCloudScan.model"))
 
     def prepare_data(self, data):
         if self.config.mode in 'train':
@@ -216,16 +228,19 @@ class InvoiceNetCloudScan:
         feature_list = ['length', 'line_size', 'position_on_line', 'has_digits', 'bottom_margin', 'top_margin',
                         'left_margin', 'right_margin', 'page_width', 'page_height', 'parses_as_amount',
                         'parses_as_date', 'parses_as_number']
-        features = np.zeros([padded_seq.shape[0], len(feature_list)], dtype=np.float32)
+        features = np.zeros(
+            [padded_seq.shape[0], len(feature_list)], dtype=np.float32)
         for i in range(len(feature_list)):
             features[:, i] = data[feature_list[i]].values
         features = np.concatenate((padded_seq, features), axis=1)
 
-        spatial_features = np.zeros([features.shape[0], features.shape[1]*4], dtype=np.float32)
+        spatial_features = np.zeros(
+            [features.shape[0], features.shape[1]*4], dtype=np.float32)
 
         zero_vec = np.zeros(features.shape[1], dtype=np.float32)
         for i in range(features.shape[0]):
-            vectors = [zero_vec if j == -1 else features[j] for j in data.at[i, 'closest_ngrams']]
+            vectors = [zero_vec if j == -1 else features[j]
+                       for j in data.at[i, 'closest_ngrams']]
             spatial_features[i, :] = np.concatenate(vectors)
 
         features = np.concatenate((features, spatial_features), axis=1)
@@ -234,15 +249,13 @@ class InvoiceNetCloudScan:
             return features, data['label'].values
         else:
             features = np.concatenate((features,
-                                       np.repeat(features[data['label'].values[data['label'].values != 0]]
-                                                 , self.config.oversample, axis=0)),
+                                       np.repeat(features[data['label'].values[data['label'].values != 0]], self.config.oversample, axis=0)),
                                       axis=0)
             labels = np.concatenate((data['label'].values,
                                      np.repeat(data['label'].values[data['label'].values != 0],
                                                self.config.oversample, axis=0)),
                                     axis=0)
             return features, labels
-
 
     def load_weights(self, path):
         """Loads weights from the given model file"""
@@ -283,9 +296,12 @@ class InvoiceNetCloudScan:
         f1_sum = 0
         f1_count = 0
         for target_label in range(0, max(ground_truth)):
-            precision = self.get_precision(predictions, ground_truth, target_label)
-            recall = self.get_precision(ground_truth, predictions, target_label)
-            f1 = 0 if (precision + recall) == 0 else 2 * precision * recall / (precision + recall)
+            precision = self.get_precision(
+                predictions, ground_truth, target_label)
+            recall = self.get_precision(
+                ground_truth, predictions, target_label)
+            f1 = 0 if (precision + recall) == 0 else 2 * \
+                precision * recall / (precision + recall)
             f1_sum += f1
             f1_count += 1
 

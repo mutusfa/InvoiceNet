@@ -1,7 +1,8 @@
-import numpy as np
-import pickle
 import gzip
+import pickle
+
 from gensim.models import Word2Vec
+import numpy as np
 
 
 class DataHandler:
@@ -104,7 +105,8 @@ class DataHandler:
 
     def save_data(self, out_path='./data/processed.pkl.gz'):
         """Saves the embeddings and vocab as a zipped pickle file"""
-        assert (self.embeddings is not None or self.word2idx), "Data has not been processed yet"
+        assert (
+            self.embeddings is not None or self.word2idx), "Data has not been processed yet"
         pkl = {'embeddings': self.embeddings,
                'word2idx': self.word2idx,
                'idx2word': self.idx2word
