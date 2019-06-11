@@ -14,23 +14,6 @@ The second model is based on CloudScan.
 python3 cloud_scan.py -h
 ```
 
-#### Dependencies:
-```
-python3
-
-nltk
-pandas
-numpy
-keras
-pickle
-gzip
-gensim
-sklearn
-matplotlib
-tqdm
-datefinder
-```
-
 ## References: 
 
 - Rasmus Berg Palm, Ole Winther, Florian Laws, CloudScan - A configuration-free invoice analysis system using recurrent neural networks,  	[arXiv:1708.07403v1 [cs.CL]](https://arxiv.org/pdf/1708.07403.pdf)
