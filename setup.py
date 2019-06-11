@@ -12,10 +12,24 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mutusfa/InvoiceNet",
-    packages=setuptools.find_packages('.'),
+    package_dir={'': 'src'},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    install_requires=[
+        "datefinder",
+        "Keras",
+        "matplotlib",
+        "numpy",
+        "nltk",
+        "pandas",
+        "protobuf",
+        "PyYAML",
+        "sklearn",
+        "tensorflow",
+        "tqdm",
+    ]
+
 )
