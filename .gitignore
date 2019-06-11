@@ -2,3 +2,7 @@
 *.idea
 *.pk
 env
+
+# setup-tools output
+dist/
+invoice_net_mutusfa.egg-info/
