@@ -25,7 +25,6 @@ setuptools.setup(
         "numpy",
         "nltk",
         "pandas",
-        "protobuf",
         "PyYAML",
         "sklearn",
         "tensorflow",
