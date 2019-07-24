@@ -147,7 +147,11 @@ def extract_features(path):
                     grams['parses_as_number'].append(0.0)
                     processed_text = []
                     for word in ngram:
-                        if bool(list(datefinder.find_dates(word))):
+                        try:
+                            parses_as_date = bool(list(datefinder.find_dates(word)))
+                        except OverflowError:
+                            parses_as_date = False
+                        if parses_as_date:
                             processed_text.append('date')
                             grams['parses_as_date'][-1] = 1.0
                         elif bool(re.search(r'\d\.\d', word)) or '$' in word:
