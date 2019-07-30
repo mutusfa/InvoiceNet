@@ -1,3 +1,8 @@
+# training output
+checkpoints/
+logs/
+model/
+
 *.pyc
 *.idea
 *.pk
