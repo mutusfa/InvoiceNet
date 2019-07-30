@@ -8,7 +8,7 @@ def parse_args():
     ap = argparse.ArgumentParser()
 
     ap.add_argument("--mode", type=str, choices=["train", "test"],
-                    required=True, help="train|test")
+                    default="test", help="train|test")
     ap.add_argument("--data", default="data/dftrain.pk",
                     help="path to training data")
     ap.add_argument("--model_path", default="./model",
