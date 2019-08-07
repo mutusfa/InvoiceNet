@@ -13,8 +13,6 @@ from keras.regularizers import L1L2
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
 
-from metrics import sensitivity, specificity
-
 np.random.seed(1337)
 
 
@@ -62,7 +60,7 @@ class InvoiceNet:
 
         self.model = Model(inputs=[words_input, coordinates], outputs=[output])
         self.model.compile(loss='sparse_categorical_crossentropy',
-                           optimizer='Adam', metrics=[sensitivity, specificity])
+                           optimizer='Adam', metrics=['accuracy'])
         # self.model.summary()
         self.data_handler = data_handler
         self.config = config
