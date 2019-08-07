@@ -42,17 +42,14 @@ class DataHandler:
         coordinates = []
 
         for i, row in self.data.iterrows():
-            text = row['type']
-            coords = row['coords']
-            label = self.label_dict[int(row['label'])]
-            tokens = text[0].strip().split(' ')
+            text = row['processed_text']
+            label = int(row['label'])
+            tokens = text.strip().split(' ')
             # dtypes = [self.type_dict[dtype] for dtype in text[1].split(',')]
-            height = float(text[-2])
-            width = float(text[-1])
-            min_x = float(coords[0]) / width
-            min_y = float(coords[1]) / height
-            max_x = float(coords[2]) / width
-            max_y = float(coords[3]) / height
+            min_x = row['left_margin']
+            min_y = row['top_margin']
+            max_x = row['right_margin']
+            max_y = row['bottom_margin']
 
             tokens = [self.START] + tokens[:self.max_length - 2] + [self.END]
             tokens += [self.PAD] * (self.max_length - len(tokens))

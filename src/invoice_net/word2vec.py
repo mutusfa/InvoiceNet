@@ -11,7 +11,7 @@ with open('df_train_api.pk', 'rb') as pklfile:
 sentences = []
 
 for i, row in df.iterrows():
-    text = row['type'][0].strip()
+    text = row['processed_text'].strip()
     sentences.append(text.split(' '))
 
 model = Word2Vec(sentences, size=300, window=5, min_count=3, workers=4)
