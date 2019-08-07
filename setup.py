@@ -20,6 +20,7 @@ setuptools.setup(
     ],
     install_requires=[
         "datefinder",
+        "gensim",
         "Keras",
         "matplotlib",
         "numpy",
