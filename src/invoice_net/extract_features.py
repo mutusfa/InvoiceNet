@@ -230,7 +230,7 @@ def _fill_gram_features(
     )
     gram['bottom_margin'] = \
         (ymax - file_info['ymin']) / file_info['page_height']
-    gram['label'] = label
+    gram['label'] = label_dict[label]
     return gram
 
 
