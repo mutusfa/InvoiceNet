@@ -1,5 +1,7 @@
 import argparse
 
+import pandas as pd
+
 from invoice_net.model import InvoiceNetCloudScan
 from invoice_net.extract_features import extract_features
 
@@ -11,6 +13,7 @@ def parse_args():
                     default="test", help="train|test")
     ap.add_argument("--data", default="data/dftrain.pk",
                     help="path to training data")
+    ap.add_argument("--raw_data", help="path to unprocessed data")
     ap.add_argument("--model_path", default="./model",
                     help="path to directory where trained model should be stored")
     ap.add_argument("--load_weights", default="./model/InvoiceNetCloudScan.model",
@@ -42,7 +45,10 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     net = InvoiceNetCloudScan(config=args)
-    features = extract_features(args.data)
+    if args.raw_data:
+        features = extract_features(args.raw_data)
+    else:
+        features = pd.read_pickle(args.data)
 
     if args.mode == 'train':
         net.train(features)
