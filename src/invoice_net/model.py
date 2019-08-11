@@ -10,7 +10,8 @@ from tensorflow.keras.layers import (
     Dropout,
     Embedding,
     Input,
-    GlobalMaxPooling1D
+    GlobalMaxPooling1D,
+    GRU,
 )
 from tensorflow.keras.regularizers import L1L2
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
@@ -129,7 +130,7 @@ class InvoiceNet(InvoiceNetInterface):
                           trainable=False)(words_input)
 
         output = Dropout(0.5)(words)
-        output = layers.GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.5, go_backwards=True)(output)
+        output = GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.5, go_backwards=True)(output)
         output = concatenate([output, coordinates, aux_features])
         output = Dense(config.num_hidden, activation='relu')(output)
         output = Dense(config.num_hidden, activation='relu')(output)
