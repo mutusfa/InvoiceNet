@@ -3,6 +3,7 @@ import pickle
 
 import numpy as np
 from keras.models import Model
+from keras import layers
 from keras.layers import Input, Dense, Dropout, concatenate
 from keras.layers import Embedding
 from keras.layers import Convolution1D, GlobalMaxPooling1D
@@ -16,58 +17,36 @@ from sklearn.utils.class_weight import compute_class_weight
 np.random.seed(1337)
 
 
-class InvoiceNet:
+def get_recall(predicted_labels, true_labels, target_label):
+    mask = true_labels == target_label
+    return np.mean(predicted_labels[mask] == true_labels[mask])
 
+
+def get_precision(predicted_labels, true_labels, target_label):
+    mask = true_labels == target_label
+    return np.sum(predicted_labels[mask] == true_labels[mask]) / true_labels.size
+
+
+def get_f1_score(predicted_labels, true_labels, target_label):
+    precision = get_precision(predicted_labels, true_labels, target_label)
+    recall = get_recall(predicted_labels, true_labels, target_label)
+    return 2 * (precision * recall) / (precision + recall)
+
+
+def get_f1_scores(predictions, true_labels):
+    f1_scores = {}
+    for target_label in true_labels:
+        f1 = get_precision(prediction, self.data_handler['labels'], target_label)
+        f1_scores[target_label] = f1
+    macrof1 = sum(f1_scores.values()) / len(true_labels)
+    return f1_scores, macrof1
+
+
+class InvoiceNetInterface:
     def __init__(self, data_handler, config):
-        coordinates = Input(shape=(data_handler.train_data['coordinates'].shape[1],),
-                            dtype='float32', name='coordinates')
-        words_input = Input(shape=(data_handler.max_length,),
-                            dtype='int32', name='words_input')
-        words = Embedding(data_handler.embeddings.shape[0], data_handler.embeddings.shape[1],
-                          weights=[data_handler.embeddings],
-                          trainable=False)(words_input)
+        raise NotImplementedError("Model should be defined in __init__ method")
 
-        conv1 = Convolution1D(filters=config.num_filters,
-                              kernel_size=3,
-                              padding='same',
-                              activation='relu',
-                              strides=1,
-                              kernel_regularizer=regularizers.l2(config.reg_rate))(words)
-        pool1 = GlobalMaxPooling1D()(conv1)
-
-        conv2 = Convolution1D(filters=config.num_filters,
-                              kernel_size=4,
-                              padding='same',
-                              activation='relu',
-                              strides=1,
-                              kernel_regularizer=regularizers.l2(config.reg_rate))(words)
-        pool2 = GlobalMaxPooling1D()(conv2)
-
-        conv3 = Convolution1D(filters=config.num_filters,
-                              kernel_size=5,
-                              padding='same',
-                              activation='relu',
-                              strides=1,
-                              kernel_regularizer=regularizers.l2(config.reg_rate))(words)
-        pool3 = GlobalMaxPooling1D()(conv3)
-
-        output = concatenate([pool1, pool2, pool3])
-        output = Dropout(0.5)(output)
-        output = concatenate([output, coordinates])
-        output = Dense(config.num_hidden, activation='relu')(output)
-        output = Dropout(0.5)(output)
-        output = Dense(data_handler.num_classes, activation='softmax')(output)
-
-        self.model = Model(inputs=[words_input, coordinates], outputs=[output])
-        self.model.compile(loss='sparse_categorical_crossentropy',
-                           optimizer='Adam', metrics=['accuracy'])
-        # self.model.summary()
-        self.data_handler = data_handler
-        self.config = config
-
-    def train(self):
-        print("\nInitializing training...")
-
+    def _create_needed_dirs(self):
         if not os.path.exists(self.config.log_dir):
             os.makedirs(self.config.log_dir)
 
@@ -77,26 +56,86 @@ class InvoiceNet:
         if not os.path.exists(self.config.model_path):
             os.makedirs(self.config.model_path)
 
-        tensorboard = TensorBoard(
+    @property
+    def tensorboard_callback(self):
+        return TensorBoard(
             log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
-        modelcheckpoints = ModelCheckpoint(os.path.join(self.config.checkpoint_dir, "InvoiceNet") +
-                                           ".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5",
-                                           monitor='val_loss', verbose=0, save_best_only=True,
-                                           save_weights_only=False, mode='auto')
 
-        class_weights = compute_class_weight('balanced', np.unique(self.data_handler.train_data['labels']),
-                                             self.data_handler.train_data['labels'])
+    @property
+    def modelcheckpoints_callback(
+            self,
+            filename_format=".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5",
+        ):
+        return ModelCheckpoint(
+            os.path.join(
+                self.config.checkpoint_dir,
+                self.__class__.__name__ + filename_format,
+            ),
+            monitor='val_loss',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,
+            mode='auto'
+        )
+
+    def get_class_weights(self, true_labels):
+        class_weights = compute_class_weight(
+                'balanced',
+                np.unique(true_labels),
+                self.data_handler.train_data['labels'])
         d_class_weights = dict(enumerate(class_weights))
 
-        self.model.fit([self.data_handler.train_data['inputs'], self.data_handler.train_data['coordinates']],
-                       self.data_handler.train_data['labels'],
-                       batch_size=self.config.batch_size,
-                       verbose=True,
-                       epochs=self.config.num_epochs,
-                       callbacks=[tensorboard, modelcheckpoints],
-                       validation_split=0.125,
-                       shuffle=self.config.shuffle,
-                       class_weight=d_class_weights)
+
+
+
+class InvoiceNet(InvoiceNetInterface):
+
+    def __init__(self, data_handler, config):
+        coordinates = Input(shape=(data_handler.train_data['coordinates'].shape[1],),
+                            dtype='float32', name='coordinates')
+        words_input = Input(shape=(data_handler.max_length,),
+                            dtype='int32', name='words_input')
+        aux_features = Input(shape=(data_handler.train_data['aux_features'].shape[1],),
+                dtype='float32', name='aux_features')
+        words = Embedding(data_handler.embeddings.shape[0], data_handler.embeddings.shape[1],
+                          weights=[data_handler.embeddings],
+                          trainable=False)(words_input)
+
+        output = Dropout(0.5)(words)
+        output = layers.GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.9, go_backwards=True)(output)
+        output = concatenate([output, coordinates, aux_features])
+        output = Dense(config.num_hidden, activation='relu')(output)
+        output = Dense(config.num_hidden, activation='relu')(output)
+        output = Dropout(0.5)(output)
+        output = Dense(config.num_hidden, activation='relu')(output)
+        output = Dense(data_handler.num_classes, activation='softmax')(output)
+
+        self.model = Model(
+            inputs=[words_input, coordinates, aux_features],
+            outputs=[output]
+        )
+        self.model.compile(loss='sparse_categorical_crossentropy',
+                           optimizer='Adam', metrics=['accuracy'])
+        # self.model.summary()
+        self.data_handler = data_handler
+        self.config = config
+
+    def train(self):
+        print("\nInitializing training...")
+
+        self._create_needed_dirs()
+
+        self.model.fit(
+            self.data_handler.features,
+            self.data_handler.labels,
+            batch_size=self.config.batch_size,
+            verbose=True,
+            epochs=self.config.num_epochs,
+            callbacks=[self.tensorboard_callback, self.modelcheckpoints_callback],
+            validation_split=0.125,
+            shuffle=self.config.shuffle,
+            class_weight=self.get_class_weights(self.data_handler.labels)
+        )
 
         self.model.save_weights(os.path.join(
             self.config.model_path, "InvoiceNet.model"))
@@ -122,37 +161,11 @@ class InvoiceNet:
         print("\nTest Accuracy: {}".format(acc))
         return predictions
 
-    @staticmethod
-    def get_precision(predictions, true_labels, target_label):
-        target_label_count = 0
-        correct_target_label_count = 0
-
-        for idx in range(len(predictions)):
-            if predictions[idx] == target_label:
-                target_label_count += 1
-                if predictions[idx] == true_labels[idx]:
-                    correct_target_label_count += 1
-
-        if correct_target_label_count == 0:
-            return 0
-        return float(correct_target_label_count) / target_label_count
-
     def f1_score(self, predictions):
-        f1_sum = 0
-        f1_count = 0
-        for target_label in range(0, max(self.data_handler.train_data['labels'])):
-            precision = self.get_precision(
-                predictions, self.data_handler.train_data['labels'], target_label)
-            recall = self.get_precision(
-                self.data_handler.train_data['labels'], predictions, target_label)
-            f1 = 0 if (precision+recall) == 0 else 2 * \
-                precision*recall/(precision+recall)
-            f1_sum += f1
-            f1_count += 1
-
-        macrof1 = f1_sum / float(f1_count)
+        true_labels = self.data_handler.train_data['labels']
+        f1_scores, macrof1 = get_f1_scores(predictions, true_labels)
         print("\nMacro-Averaged F1: %.4f\n" % macrof1)
-        return macrof1
+        return f1_scores, macrof1
 
 
 class InvoiceNetCloudScan:
@@ -206,10 +219,11 @@ class InvoiceNetCloudScan:
                        batch_size=self.config.batch_size,
                        verbose=True,
                        epochs=self.config.epochs,
-                       callbacks=[tensorboard, modelcheckpoints],
+                       callbacks=[modelcheckpoints],
                        validation_split=0.125,
                        shuffle=self.config.shuffle,
-                       class_weight=d_class_weights)
+                       class_weight=d_class_weights
+                       )
 
         self.model.save_weights(os.path.join(
             self.config.model_path, "InvoiceNetCloudScan.model"))

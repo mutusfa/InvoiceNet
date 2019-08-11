@@ -59,9 +59,21 @@ class DataHandler:
             labels.append(np.array(label))
             coordinates.append(np.array([min_x, min_y, max_x, max_y]))
 
-        self.train_data['inputs'] = np.array(inputs)
+        self.train_data['words_input'] = np.array(inputs)
         self.train_data['labels'] = np.array(labels)
         self.train_data['coordinates'] = np.array(coordinates)
+        self.train_data['aux_features'] = self.data.loc[:, ['has_digits', 'parses_as_amount', 'parses_as_date', 'parses_as_number', 'position_on_line', 'position_on_line']].values
+
+    @property
+    def features(self):
+        # only keys are copied so this is cheap
+        features = self.train_data.copy()
+        features.pop('labels')
+        return features
+
+    @property
+    def labels(self):
+        return self.train_data['labels']
 
     def load_embeddings(self, model_path):
         """Loads pre-trained gensim model"""

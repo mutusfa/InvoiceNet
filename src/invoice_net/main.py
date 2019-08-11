@@ -49,10 +49,6 @@ data = DataHandler(df, max_len=12)
 data.load_embeddings(args.word2vec)
 data.prepare_data()
 
-print(data.train_data['inputs'].shape)
-print(data.train_data['labels'].shape)
-print(data.train_data['coordinates'].shape)
-
 net = InvoiceNet(data_handler=data, config=args)
 
 if args.mode == 'train':
