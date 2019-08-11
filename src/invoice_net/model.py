@@ -2,16 +2,18 @@ import os
 import pickle
 
 import numpy as np
-from keras.models import Model
-from keras import layers
-from keras.layers import Input, Dense, Dropout, concatenate
-from keras.layers import Embedding
-from keras.layers import Convolution1D, GlobalMaxPooling1D
-from keras import regularizers
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
-from keras.regularizers import L1L2
-from keras.callbacks import TensorBoard, ModelCheckpoint
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import (
+    concatenate,
+    Convolution1D,
+    Dense,
+    Dropout,
+    Embedding,
+    Input,
+    GlobalMaxPooling1D
+)
+from tensorflow.keras.regularizers import L1L2
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
 
 np.random.seed(1337)
