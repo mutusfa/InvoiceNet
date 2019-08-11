@@ -2,6 +2,7 @@ import argparse
 
 import pandas as pd
 
+from invoice_net.data_handler import DataHandler
 from invoice_net.model import InvoiceNetCloudScan
 from invoice_net.extract_features import extract_features
 
@@ -18,13 +19,15 @@ def parse_args():
                     help="path to directory where trained model should be stored")
     ap.add_argument("--load_weights", default="./model/InvoiceNetCloudScan.model",
                     help="path to load weights")
+    ap.add_argument("--word2vec", default="model.bin",
+                    help="path to word2vec model")
     ap.add_argument("--checkpoint_dir", default="./checkpoints",
                     help="path to directory where checkpoints should be stored")
     ap.add_argument("--log_dir", default="./logs",
                     help="path to directory where tensorboard logs should be stored")
     ap.add_argument("--num_hidden", type=int, default=256,
                     help="size of hidden layer")
-    ap.add_argument("--epochs", type=int, default=20,
+    ap.add_argument("--num_epochs", type=int, default=20,
                     help="number of epochs")
     ap.add_argument("--batch_size", type=int, default=128,
                     help="size of mini-batch")
@@ -44,17 +47,21 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    net = InvoiceNetCloudScan(config=args)
     if args.raw_data:
         features = extract_features(args.raw_data)
     else:
         features = pd.read_pickle(args.data)
 
+    data = DataHandler(features, max_len=12)
+    data.load_embeddings(args.word2vec)
+    data.prepare_data()
+    net = InvoiceNetCloudScan(data_handler=data, config=args)
+
     if args.mode == 'train':
-        net.train(features)
+        net.train()
     else:
         net.load_weights(args.load_weights)
-        predictions = net.evaluate(features)
+        predictions = net.evaluate()
         net.f1_score(predictions, features.label.values)
         # for i in range(predictions.shape[0]):
         #     print(predictions[i], features.label.values[i], features.iloc[i])

@@ -85,7 +85,32 @@ class InvoiceNetInterface:
                 self.data_handler.train_data['labels'])
         d_class_weights = dict(enumerate(class_weights))
 
+    def prepare_data(self, features, labels):
+        """A hook for subclasses to modify data for their own needs"""
+        return features, labels
 
+    def train(self):
+        print("\nInitializing training...")
+        self._create_needed_dirs()
+        features, labels = self.prepare_data(
+            self.data_handler.features,
+            self.data_handler.labels
+        )
+
+        self.model.fit(
+            features,
+            labels,
+            batch_size=self.config.batch_size,
+            verbose=True,
+            epochs=self.config.num_epochs,
+            callbacks=[self.tensorboard_callback, self.modelcheckpoints_callback],
+            validation_split=0.125,
+            shuffle=self.config.shuffle,
+            class_weight=self.get_class_weights(self.data_handler.labels)
+        )
+
+        self.model.save_weights(os.path.join(
+            self.config.model_path, self.__class__.__name__ + ".model"))
 
 
 class InvoiceNet(InvoiceNetInterface):
@@ -102,7 +127,7 @@ class InvoiceNet(InvoiceNetInterface):
                           trainable=False)(words_input)
 
         output = Dropout(0.5)(words)
-        output = layers.GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.9, go_backwards=True)(output)
+        output = layers.GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.5, go_backwards=True)(output)
         output = concatenate([output, coordinates, aux_features])
         output = Dense(config.num_hidden, activation='relu')(output)
         output = Dense(config.num_hidden, activation='relu')(output)
@@ -119,26 +144,6 @@ class InvoiceNet(InvoiceNetInterface):
         # self.model.summary()
         self.data_handler = data_handler
         self.config = config
-
-    def train(self):
-        print("\nInitializing training...")
-
-        self._create_needed_dirs()
-
-        self.model.fit(
-            self.data_handler.features,
-            self.data_handler.labels,
-            batch_size=self.config.batch_size,
-            verbose=True,
-            epochs=self.config.num_epochs,
-            callbacks=[self.tensorboard_callback, self.modelcheckpoints_callback],
-            validation_split=0.125,
-            shuffle=self.config.shuffle,
-            class_weight=self.get_class_weights(self.data_handler.labels)
-        )
-
-        self.model.save_weights(os.path.join(
-            self.config.model_path, "InvoiceNet.model"))
 
     def load_weights(self, path):
         """Loads weights from the given model file"""
@@ -168,10 +173,11 @@ class InvoiceNet(InvoiceNetInterface):
         return f1_scores, macrof1
 
 
-class InvoiceNetCloudScan:
+class InvoiceNetCloudScan(InvoiceNetInterface):
 
-    def __init__(self, config):
-        features = Input(shape=(config.num_input*5,),
+    def __init__(self, data_handler, config):
+        num_features = sum(v.shape[1] for v in data_handler.features.values())
+        features = Input(shape=(num_features*5,),
                          dtype='float32', name='features')
 
         if config.num_layers == 2:
@@ -187,101 +193,30 @@ class InvoiceNetCloudScan:
                            loss='sparse_categorical_crossentropy',
                            metrics=['accuracy'])
         print(self.model.summary())
+        self.data_handler = data_handler
         self.config = config
 
-    def train(self, data):
-        print("\nInitializing training...")
-
-        if not os.path.exists(self.config.log_dir):
-            os.makedirs(self.config.log_dir)
-
-        if not os.path.exists(self.config.checkpoint_dir):
-            os.makedirs(self.config.checkpoint_dir)
-
-        if not os.path.exists(self.config.model_path):
-            os.makedirs(self.config.model_path)
-
-        x_train, y_train = self.prepare_data(data)
-
-        tensorboard = TensorBoard(
-            log_dir=self.config.log_dir, histogram_freq=1, write_graph=True)
-        modelcheckpoints = ModelCheckpoint(os.path.join(self.config.checkpoint_dir, "InvoiceNetCloudScan") +
-                                           ".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5",
-                                           monitor='val_loss', verbose=0, save_best_only=True,
-                                           save_weights_only=False, mode='auto')
-
-        classes = np.unique(data['label'].values)
-        class_weights = compute_class_weight(
-            'balanced', classes, data['label'].values)
-        d_class_weights = dict(enumerate(class_weights))
-
-        self.model.fit([x_train], y_train,
-                       batch_size=self.config.batch_size,
-                       verbose=True,
-                       epochs=self.config.epochs,
-                       callbacks=[modelcheckpoints],
-                       validation_split=0.125,
-                       shuffle=self.config.shuffle,
-                       class_weight=d_class_weights
-                       )
-
-        self.model.save_weights(os.path.join(
-            self.config.model_path, "InvoiceNetCloudScan.model"))
-
-    def prepare_data(self, data):
-        if self.config.mode in 'train':
-            tokenizer = Tokenizer()
-            tokenizer.fit_on_texts(data.processed_text)
-            with open('data/tokenizer.pk', 'wb') as handle:
-                pickle.dump(tokenizer, handle, protocol=3)
-        else:
-            with open('data/tokenizer.pk', 'rb') as handle:
-                tokenizer = pickle.load(handle)
-        seq = tokenizer.texts_to_sequences(data.processed_text)
-        padded_seq = pad_sequences(seq, maxlen=4)
-        feature_list = ['length', 'line_size', 'position_on_line', 'has_digits', 'bottom_margin', 'top_margin',
-                        'left_margin', 'right_margin', 'page_width', 'page_height', 'parses_as_amount',
-                        'parses_as_date', 'parses_as_number']
-        features = np.zeros(
-            [padded_seq.shape[0], len(feature_list)], dtype=np.float32)
-        for i in range(len(feature_list)):
-            features[:, i] = data[feature_list[i]].values
-        features = np.concatenate((padded_seq, features), axis=1)
+    def prepare_data(self, features, labels):
+        features_array = np.concatenate([v for v in features.values()], axis=1)
 
         spatial_features = np.zeros(
-            [features.shape[0], features.shape[1]*4], dtype=np.float32)
+            [features_array.shape[0], features_array.shape[1]*4], dtype=np.float32)
 
-        zero_vec = np.zeros(features.shape[1], dtype=np.float32)
-        for i in range(features.shape[0]):
-            vectors = [zero_vec if j == -1 else features[j]
-                       for j in data.at[i, 'closest_ngrams']]
+        zero_vec = np.zeros(features_array.shape[1], dtype=np.float32)
+        for i in range(features_array.shape[0]):
+            vectors = [zero_vec if j == -1 else features_array[j]
+                       # TODO fix this hardcoded reference
+                       for j in self.data_handler.data.at[i, 'closest_ngrams']]
             spatial_features[i, :] = np.concatenate(vectors)
 
-        features = np.concatenate((features, spatial_features), axis=1)
-
-        if self.config.oversample == 0:
-            return features, data['label'].values
-        else:
-            features = np.concatenate((features,
-                                       np.repeat(features[data['label'].values[data['label'].values != 0]], self.config.oversample, axis=0)),
-                                      axis=0)
-            labels = np.concatenate((data['label'].values,
-                                     np.repeat(data['label'].values[data['label'].values != 0],
-                                               self.config.oversample, axis=0)),
-                                    axis=0)
-            return features, labels
+        features_array = np.concatenate((features_array, spatial_features), axis=1)
+        # TODO add oversampling back
+        return features_array, labels
 
     def load_weights(self, path):
         """Loads weights from the given model file"""
         self.model.load_weights(path)
         print("\nSuccessfully loaded weights from {}".format(path))
-
-    # def predict(self, tokens, coordinates):
-    #     """Performs inference on the given tokens and coordinates"""
-    #     inp, coords = self.data_handler.process_data(tokens, coordinates)
-    #     pred = self.model.predict([inp, coords], verbose=True)
-    #     pred = pred.argmax(axis=-1)
-    #     return pred
 
     def evaluate(self, data):
         x_test, y_test = self.prepare_data(data)
@@ -291,34 +226,7 @@ class InvoiceNetCloudScan:
         print("\nTest Accuracy: {}".format(acc))
         return predictions
 
-    @staticmethod
-    def get_precision(predictions, true_labels, target_label):
-        target_label_count = 0
-        correct_target_label_count = 0
-
-        for idx in range(len(predictions)):
-            if predictions[idx] == target_label:
-                target_label_count += 1
-                if predictions[idx] == true_labels[idx]:
-                    correct_target_label_count += 1
-
-        if correct_target_label_count == 0:
-            return 0
-        return float(correct_target_label_count) / target_label_count
-
     def f1_score(self, predictions, ground_truth):
-        f1_sum = 0
-        f1_count = 0
-        for target_label in range(0, max(ground_truth)):
-            precision = self.get_precision(
-                predictions, ground_truth, target_label)
-            recall = self.get_precision(
-                ground_truth, predictions, target_label)
-            f1 = 0 if (precision + recall) == 0 else 2 * \
-                precision * recall / (precision + recall)
-            f1_sum += f1
-            f1_count += 1
-
-        macrof1 = f1_sum / float(f1_count)
+        f1_scores, macrof1 = get_f1_scores(predictions, ground_truth)
         print("\nMacro-Averaged F1: %.4f\n" % macrof1)
         return macrof1

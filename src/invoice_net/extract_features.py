@@ -125,7 +125,8 @@ def _process_text(ngram):
         elif word_is_number:
             processed_text.append('number')
         else:
-            processed_text.append(word.lower())
+            alphanum_only = ''.join(filter(str.isalnum, word))
+            processed_text.append(alphanum_only.lower())
     as_number = as_number or as_date or as_amount
     return ' '.join(processed_text), as_date, as_amount, as_number
 
@@ -230,7 +231,7 @@ def _fill_gram_features(
     )
     gram['bottom_margin'] = \
         (ymax - file_info['ymin']) / file_info['page_height']
-    gram['label'] = label_dict[label]
+    gram['labels'] = label_dict[label]
     return gram
 
 

@@ -6,6 +6,16 @@ import numpy as np
 
 
 class DataHandler:
+    coordinates_features = [
+        'bottom_margin', 'top_margin', 'left_margin', 'right_margin',
+    ]
+    auxillary_features = [
+        'length', 'line_size', 'position_on_line',
+        'has_digits', 'parses_as_amount', 'parses_as_date', 'parses_as_number'
+#        'page_width', 'page_height',
+    ]
+
+
     def __init__(self, data=None, max_len=10):
         self.data = data
         self.max_length = max_len
@@ -37,32 +47,24 @@ class DataHandler:
 
     def prepare_data(self):
         """Prepares data for training"""
+        #FIXME use pad_sequences from keras
         inputs = []
-        labels = []
-        coordinates = []
 
         for i, row in self.data.iterrows():
             text = row['processed_text']
-            label = int(row['label'])
             tokens = text.strip().split(' ')
             # dtypes = [self.type_dict[dtype] for dtype in text[1].split(',')]
-            min_x = row['left_margin']
-            min_y = row['top_margin']
-            max_x = row['right_margin']
-            max_y = row['bottom_margin']
 
             tokens = [self.START] + tokens[:self.max_length - 2] + [self.END]
             tokens += [self.PAD] * (self.max_length - len(tokens))
             inp = [self.get_word_id(token) for token in tokens]
 
             inputs.append(np.array(inp))
-            labels.append(np.array(label))
-            coordinates.append(np.array([min_x, min_y, max_x, max_y]))
 
         self.train_data['words_input'] = np.array(inputs)
-        self.train_data['labels'] = np.array(labels)
-        self.train_data['coordinates'] = np.array(coordinates)
-        self.train_data['aux_features'] = self.data.loc[:, ['has_digits', 'parses_as_amount', 'parses_as_date', 'parses_as_number', 'position_on_line', 'position_on_line']].values
+        self.train_data['labels'] = self.data.loc[:, 'labels'].astype('int32').values
+        self.train_data['coordinates'] = self.data.loc[:, self.coordinates_features].values
+        self.train_data['aux_features'] = self.data.loc[:, self.auxillary_features].values
 
     @property
     def features(self):
@@ -73,6 +75,7 @@ class DataHandler:
 
     @property
     def labels(self):
+        print(self.train_data.keys())
         return self.train_data['labels']
 
     def load_embeddings(self, model_path):
