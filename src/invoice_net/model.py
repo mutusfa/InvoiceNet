@@ -2,6 +2,7 @@ import os
 import pickle
 
 import numpy as np
+import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     concatenate,
@@ -39,10 +40,52 @@ def get_f1_score(predicted_labels, true_labels, target_label):
 def get_f1_scores(predictions, true_labels):
     f1_scores = {}
     for target_label in true_labels:
-        f1 = get_precision(prediction, self.data_handler['labels'], target_label)
+        f1 = get_f1_score(prediction, true_labels, target_label)
         f1_scores[target_label] = f1
     macrof1 = sum(f1_scores.values()) / len(true_labels)
     return f1_scores, macrof1
+
+def f1(y_true, y_pred, num_classes=6):
+    def recall(y_true, y_pred):
+        """Recall metric.
+
+        Only computes a batch-wise average of recall.
+
+        Computes the recall, a metric for multi-label classification of
+        how many relevant items are selected.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+        recall = true_positives / (possible_positives + K.epsilon())
+        return recall
+
+    def precision(y_true, y_pred):
+        """Precision metric.
+
+        Only computes a batch-wise average of precision.
+
+        Computes the precision, a metric for multi-label classification of
+        how many selected items are relevant.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+        precision = true_positives / (predicted_positives + K.epsilon())
+        return precision
+    if K.ndim(y_true) == K.ndim(y_pred):
+        y_true = K.squeeze(y_true, -1)
+    # convert dense predictions to labels
+    y_pred_labels = K.argmax(y_pred, axis=-1)
+    y_pred_labels = K.cast(y_pred_labels, K.floatx())
+
+    macrof1 = 0
+    for target_label in range(num_classes):
+        y_target = K.cast(K.equal(y_true, target_label), K.floatx())
+        y_target_pred = K.cast(K.equal(y_pred_labels, target_label), K.floatx())
+        prec = precision(y_target, y_target_pred)
+        rec = recall(y_target, y_target_pred)
+        f1_score = 2*((prec*rec)/(prec+rec+K.epsilon()))
+        macrof1 += f1_score / num_classes
+    return macrof1
 
 
 class InvoiceNetInterface:
@@ -119,18 +162,29 @@ class InvoiceNetInterface:
 class InvoiceNet(InvoiceNetInterface):
 
     def __init__(self, data_handler, config):
-        coordinates = Input(shape=(data_handler.train_data['coordinates'].shape[1],),
-                            dtype='float32', name='coordinates')
+        coordinates = Input(
+            shape=(data_handler.train_data['coordinates'].shape[1],),
+            dtype='float32', name='coordinates'
+        )
+        aux_features = Input(shape=(
+            data_handler.train_data['aux_features'].shape[1],),
+            dtype='float32', name='aux_features'
+        )
         words_input = Input(shape=(data_handler.max_length,),
-                            dtype='int32', name='words_input')
-        aux_features = Input(shape=(data_handler.train_data['aux_features'].shape[1],),
-                dtype='float32', name='aux_features')
-        words = Embedding(data_handler.embeddings.shape[0], data_handler.embeddings.shape[1],
-                          weights=[data_handler.embeddings],
-                          trainable=False)(words_input)
-
+                            dtype='int32', name='words_input'
+        )
+        words = Embedding(
+            data_handler.embeddings.shape[0], data_handler.embeddings.shape[1],
+            weights=[data_handler.embeddings],
+            trainable=False
+        )(words_input)
         output = Dropout(0.5)(words)
-        output = GRU(config.num_hidden, dropout=0.5, recurrent_dropout=0.5, go_backwards=True)(output)
+        output = GRU(
+            config.num_hidden,
+            dropout=0.5,
+            recurrent_dropout=0.5,
+            go_backwards=True
+        )(output)
         output = concatenate([output, coordinates, aux_features])
         output = Dense(config.num_hidden, activation='relu')(output)
         output = Dense(config.num_hidden, activation='relu')(output)
@@ -143,7 +197,7 @@ class InvoiceNet(InvoiceNetInterface):
             outputs=[output]
         )
         self.model.compile(loss='sparse_categorical_crossentropy',
-                           optimizer='Adam', metrics=['accuracy'])
+                           optimizer='Adam', metrics=['accuracy', f1])
         # self.model.summary()
         self.data_handler = data_handler
         self.config = config
