@@ -129,7 +129,7 @@ class InvoiceNetInterface:
                 'balanced',
                 np.unique(true_labels),
                 self.data_handler.train_data['labels'])
-        d_class_weights = dict(enumerate(class_weights))
+        return dict(enumerate(class_weights))
 
     def prepare_data(self, features, labels):
         """A hook for subclasses to modify data for their own needs"""
