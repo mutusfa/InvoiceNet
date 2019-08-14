@@ -1,0 +1,25 @@
+# virtual environment
+env/
+
+# setup-tools output
+dist/
+**/*.egg-info/
+
+# data-files
+data/
+
+# training output
+checkpoints
+logs
+model
+**/model.bin
+
+# git files
+.git
+.gitignore
+
+# python cached files
+**/__pycache__
+
+# editor's files
+**/*.swp
