@@ -74,7 +74,7 @@ EMPTY_SINGLE_GRAM = {
     'parses_as_amount': False,
     'parses_as_date': False,
     'parses_as_number': False,
-    'label': 0,
+    'labels': 0,
     'closest_ngrams': [-1, -1, -1, -1],  # left, top, right, bottom
 }
 
@@ -222,7 +222,7 @@ def _fill_gram_features(
         line.coords[3] - file_info['ymin'] +
         line.page_number * file_info['page_height']
     ) / file_info['height']
-    gram['label'] = label_dict[line.labels]
+    gram['labels'] = label_dict[line.labels]
     return gram
 
 
