@@ -69,7 +69,7 @@ EMPTY_SINGLE_GRAM = {
     'top_margin': 0,
     'left_margin': 0,
     'right_margin': 1,
-    'page_width': sys.maxsize,
+    'width': sys.maxsize,
     'page_height': sys.maxsize,
     'parses_as_amount': False,
     'parses_as_date': False,
@@ -103,6 +103,7 @@ def _parses_as_amount(text):
 
 def _process_text(ngram):
     """Returns proccessed text and what does it parse as."""
+    # TODO check if preserving titles changes anything
     processed_text = []
     as_date = False
     as_amount = False
@@ -148,62 +149,49 @@ def _text_pattern(raw_text):
 
 
 def _group_by_file(df):
-    """Filters data into individual files
+    """Filters data into individual files.
 
     Also estimates:
         width and height of each file.
         x coordinate for each token in each line for every file.
     """
-    files = {}
-    for _i, row in df.iterrows():
-        filename = row['files']
-        if filename not in files:
-            files[filename] = {
-                'lines': {'words': [], 'labels': [], 'ymin': [], 'ymax': []},
-                'xmin': sys.maxsize,
-                'ymin': sys.maxsize,
-                'xmax': 0,
-                'ymax': 0
-            }
-        tokens = row['words'].strip().split(' ')
-        char_length = (row['coords'][2] - row['coords']
-                       [0]) / len(row['words'].strip())
-        token_coords = [{'xmin': row['coords'][0],
-                         'xmax': row['coords'][0] + (char_length * len(tokens[0]))}]
-        for idx in range(1, len(tokens)):
-            token_coords.append({
-                'xmin': token_coords[-1]['xmax'] + char_length,
-                'xmax': token_coords[-1]['xmax'] + (char_length * (len(tokens[idx])+1))
-            })
-        files[filename]['lines']['words'].append(
-            {'tokens': tokens, 'coords': token_coords})
-        files[filename]['lines']['labels'].append(row['labels'])
-        files[filename]['lines']['ymin'].append(row['coords'][1])
-        files[filename]['lines']['ymax'].append(row['coords'][3])
-        files[filename]['xmin'] = min(
-            files[filename]['xmin'], row['coords'][0])
-        files[filename]['ymin'] = min(
-            files[filename]['ymin'], row['coords'][1])
-        files[filename]['xmax'] = max(
-            files[filename]['xmax'], row['coords'][2])
-        files[filename]['ymax'] = max(
-            files[filename]['ymax'], row['coords'][3])
-        files[filename]['page_width'] = \
+    files = {name: {'rows': rows} for name, rows in df.groupby('files')}
+    for filename, file_info in files.items():
+        # Assuming all pages of invoice have the same width/height
+        files[filename]['xmin'] = min(c[0] for c in file_info['rows'].coords)
+        files[filename]['xmax'] = max(c[2] for c in file_info['rows'].coords)
+        files[filename]['width'] = \
             files[filename]['xmax'] - files[filename]['xmin']
+        files[filename]['ymin'] = min(c[1] for c in file_info['rows'].coords)
+        files[filename]['ymax'] = max(c[3] for c in file_info['rows'].coords)
         files[filename]['page_height'] = \
             files[filename]['ymax'] - files[filename]['ymin']
-
+        files[filename]['height'] = (max(file_info['rows'].page_number) + 1
+                                     ) * files[filename]['page_height']
+        files[filename]['rows'].words.map(lambda x: x.strip().split())
+        # using dict instead of list to match row index
+        token_coords = {}
+        words = {}
+        for row_num, row in file_info['rows'].iterrows():
+            words[row_num] = row.words.strip().split()
+            avg_token_width = \
+                (row.coords[2] - row.coords[0]) / len(words[row_num])
+            token_coords[row_num] = []
+            for idx in range(len(words[row_num])):
+                left_offset = row.coords[0] + idx * avg_token_width
+                token_coords[row_num].append({
+                    'xmin': left_offset,
+                    'xmax': left_offset + avg_token_width,
+                })
+        files[filename]['rows'].words = pd.Series(words)
+        files[filename]['rows']['token_coords'] = pd.Series(token_coords)
     return files
 
 
 def _fill_gram_features(
     ngram,
-    tokens,
-    token_coords,
     file_info,
-    ymin,
-    ymax,
-    label
+    line
 ):
     gram = copy.deepcopy(EMPTY_SINGLE_GRAM)
     label_dict = {0: 0, 1: 1, 2: 2, 18: 3}
@@ -217,21 +205,24 @@ def _fill_gram_features(
     gram['raw_text'] = raw_text
     gram['text_pattern'] = _text_pattern(raw_text)
     gram['length'] = len(' '.join(ngram))
-    gram['line_size'] = len(tokens)
-    gram['position_on_line'] = tokens.index(ngram[0])/len(tokens)
+    gram['line_size'] = len(line.words)
+    gram['position_on_line'] = line.words.index(ngram[0])/len(line.words)
     gram['has_digits'] = bool(re.search(r'\d', raw_text))
-    gram['left_margin'] = (
-        (token_coords[tokens.index(ngram[0])]['xmin'] - file_info['xmin']) /
-        file_info['page_width']
-    )
-    gram['top_margin'] = (ymin - file_info['ymin']) / file_info['page_height']
-    gram['right_margin'] = (
-        (token_coords[tokens.index(ngram[-1])]['xmax'] - file_info['xmin']) /
-        file_info['page_width']
-    )
-    gram['bottom_margin'] = \
-        (ymax - file_info['ymin']) / file_info['page_height']
-    gram['labels'] = label_dict[label]
+    leftmost_coord = line.token_coords[line.words.index(ngram[0])]['xmin']
+    gram['left_margin'] = \
+        (leftmost_coord - file_info['xmin']) / file_info['width']
+    gram['top_margin'] = (
+        line.coords[1] - file_info['ymin'] +
+        line.page_number * file_info['page_height']
+    ) / file_info['height']
+    rightmost_coord = line.token_coords[line.words.index(ngram[-1])]['xmax']
+    gram['right_margin'] = \
+        (rightmost_coord - file_info['xmin']) / file_info['width']
+    gram['bottom_margin'] = (
+        line.coords[3] - file_info['ymin'] +
+        line.page_number * file_info['page_height']
+    ) / file_info['height']
+    gram['label'] = label_dict[line.labels]
     return gram
 
 
@@ -309,20 +300,9 @@ def extract_features(path):
     with tqdm(total=len(files)) as progress_bar:
         for file_info in files.values():
             old_num_grams = len(grams)
-            for line_num in range(len(file_info['lines']['words'])):
-                words = file_info['lines']['words'][line_num]
-                tokens = words['tokens']
-                token_coords = words['coords']
-                for ngram in ngrammer(tokens):
-                    grams.append(_fill_gram_features(
-                        ngram,
-                        tokens,
-                        token_coords,
-                        file_info,
-                        file_info['lines']['ymin'][line_num],
-                        file_info['lines']['ymax'][line_num],
-                        file_info['lines']['labels'][line_num],
-                    ))
+            for _line_num, line in file_info['rows'].iterrows():
+                for ngram in ngrammer(line.words):
+                    grams.append(_fill_gram_features(ngram, file_info, line))
             _find_closest_grams(grams, start=old_num_grams)
             progress_bar.update(1)
 
