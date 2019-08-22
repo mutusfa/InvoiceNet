@@ -79,6 +79,9 @@ EMPTY_SINGLE_GRAM = {
 }
 
 
+LABEL_DICT = {0: 0, 1: 1, 2: 2, 18: 3}
+
+
 def _calculate_distance_between_grams(first, second):
     """Calculates distance vectors between two grams.
 
@@ -127,7 +130,11 @@ def _process_text(ngram):
             processed_text.append('number')
         else:
             alphanum_only = ''.join(filter(str.isalnum, word))
-            processed_text.append(alphanum_only.lower())
+            if alphanum_only:
+                processed_text.append(alphanum_only.lower())
+            else:  # keep the same amount of words in raw and processed text
+                   # for word-wise labels would correspond to same words
+                processed_text.append(word)
     as_number = as_number or as_date or as_amount
     return ' '.join(processed_text), as_date, as_amount, as_number
 
@@ -188,13 +195,19 @@ def _group_by_file(df):
     return files
 
 
+def _find_ngram_labels(ngram, line):
+    left_index = line.words.index(ngram[0])
+    right_index = line.words.index(ngram[-1])
+    labels = line.labels.split()[left_index: right_index + 1]
+    return [LABEL_DICT[int(l)] for l in labels]
+
+
 def _fill_gram_features(
     ngram,
     file_info,
     line
 ):
     gram = copy.deepcopy(EMPTY_SINGLE_GRAM)
-    label_dict = {0: 0, 1: 1, 2: 2, 18: 3}
     (
         gram['processed_text'],
         gram['parses_as_date'],
@@ -222,7 +235,7 @@ def _fill_gram_features(
         line.coords[3] - file_info['ymin'] +
         line.page_number * file_info['page_height']
     ) / file_info['height']
-    gram['labels'] = label_dict[line.labels]
+    gram_labels = _find_ngram_labels(ngram, line)
     return gram
 
 
