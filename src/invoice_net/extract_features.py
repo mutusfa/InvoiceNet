@@ -165,18 +165,19 @@ def _group_by_file(df):
         files = {name: {"rows": rows} for name, rows in df.groupby("files")}
     except KeyError:
         LOG.warning(
-            "Couldn't find file names. Assuming everything comes from a single file"
+            "Couldn't find file names. "
+            "Assuming everything comes from a single file."
         )
         files = {"untitled": {"rows": df}}
     for filename, file_info in files.items():
         # Assuming all pages of invoice have the same width/height
-        files[filename]["xmin"] = min(c[0] for c in file_info["rows"].coords)
-        files[filename]["xmax"] = max(c[2] for c in file_info["rows"].coords)
+        files[filename]["xmin"] = min(c["x1"] for c in file_info["rows"].coords)
+        files[filename]["xmax"] = max(c["x2"] for c in file_info["rows"].coords)
         files[filename]["width"] = (
             files[filename]["xmax"] - files[filename]["xmin"]
         )
-        files[filename]["ymin"] = min(c[1] for c in file_info["rows"].coords)
-        files[filename]["ymax"] = max(c[3] for c in file_info["rows"].coords)
+        files[filename]["ymin"] = min(c["y1"] for c in file_info["rows"].coords)
+        files[filename]["ymax"] = max(c["y2"] for c in file_info["rows"].coords)
         files[filename]["page_height"] = (
             files[filename]["ymax"] - files[filename]["ymin"]
         )
@@ -189,12 +190,12 @@ def _group_by_file(df):
         words = {}
         for row_num, row in file_info["rows"].iterrows():
             words[row_num] = row.words.strip().split()
-            avg_token_width = (row.coords[2] - row.coords[0]) / len(
+            avg_token_width = (row.coords["x2"] - row.coords["x1"]) / len(
                 words[row_num]
             )
             token_coords[row_num] = []
             for idx in range(len(words[row_num])):
-                left_offset = row.coords[0] + idx * avg_token_width
+                left_offset = row.coords["x1"] + idx * avg_token_width
                 token_coords[row_num].append(
                     {"xmin": left_offset, "xmax": left_offset + avg_token_width}
                 )
@@ -230,7 +231,7 @@ def _fill_gram_features(ngram, file_info, line):
         "width"
     ]
     gram["top_margin"] = (
-        line.coords[1]
+        line.coords["y1"]
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
@@ -239,7 +240,7 @@ def _fill_gram_features(ngram, file_info, line):
         "width"
     ]
     gram["bottom_margin"] = (
-        line.coords[3]
+        line.coords["y2"]
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
@@ -268,9 +269,13 @@ def _find_closest_grams(grams, start=0):
             inner_gram_id += start  # so id in loop matches id in sequence
             if id(outer_gram) == id(inner_gram):
                 continue
-            left, above, right, below, left_margin_offset = _calculate_distance_between_grams(
-                outer_gram, inner_gram
-            )
+            (
+                left,
+                above,
+                right,
+                below,
+                left_margin_offset,
+            ) = _calculate_distance_between_grams(outer_gram, inner_gram)
             # If in the same line, check for closest ngram to left and right
             if above == below:
                 if distance["left"] > left > 0:
