@@ -55,7 +55,7 @@ from nltk import ngrams
 import pandas as pd
 from tqdm import tqdm
 
-LOG = logging.get_logger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 EMPTY_SINGLE_GRAM = {
