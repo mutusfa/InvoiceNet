@@ -47,7 +47,6 @@ parses_as_number:       Whether the N-gram parses as an integer
 import argparse
 import copy
 import logging
-import pickle
 import re
 import sys
 
@@ -55,6 +54,8 @@ import datefinder
 from nltk import ngrams
 import pandas as pd
 from tqdm import tqdm
+
+LOG = logging.get_logger(__name__)
 
 
 EMPTY_SINGLE_GRAM = {
@@ -160,7 +161,13 @@ def _group_by_file(df):
         width and height of each file.
         x coordinate for each token in each line for every file.
     """
-    files = {name: {"rows": rows} for name, rows in df.groupby("files")}
+    try:
+        files = {name: {"rows": rows} for name, rows in df.groupby("files")}
+    except KeyError:
+        LOG.warning(
+            "Couldn't find file names. Assuming everything comes from a single file"
+        )
+        files = {"untitled": {"rows": df}}
     for filename, file_info in files.items():
         # Assuming all pages of invoice have the same width/height
         files[filename]["xmin"] = min(c[0] for c in file_info["rows"].coords)
@@ -236,7 +243,10 @@ def _fill_gram_features(ngram, file_info, line):
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
-    gram_labels = _find_ngram_labels(ngram, line)
+    try:
+        gram_labels = _find_ngram_labels(ngram, line)
+    except AttributeError:
+        LOG.warning("Unlabeled data. Continuing")
     return gram
 
 
@@ -305,7 +315,7 @@ def extract_features(dataframe):
     :param path: path to pickled dataframe
     :return: dataframe containing n-grams and corresponding features
     """
-    logging.info("\nExtracting features...\n")
+    LOG.info("\nExtracting features...\n")
     files = _group_by_file(dataframe)
     del dataframe
 
@@ -337,7 +347,7 @@ def main():
     args = ap.parse_args()
     features = extract_features(args.data)
     features.to_pickle(args.save_as, protocol=3)
-    logging.info("\nSaved features as {}".format(args.save_as))
+    LOG.info("\nSaved features as {}".format(args.save_as))
 
 
 if __name__ == "__main__":
