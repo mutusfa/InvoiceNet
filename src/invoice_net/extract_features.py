@@ -244,10 +244,8 @@ def _fill_gram_features(ngram, file_info, line):
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
-    try:
+    if "labels" in line:
         gram_labels = _find_ngram_labels(ngram, line)
-    except AttributeError:
-        LOG.warning("Unlabeled data. Continuing")
     return gram
 
 
@@ -328,7 +326,12 @@ def extract_features(dataframe):
     # Calculates N-grams of lengths ranging from 1-4 for each line in each
     # file and calculates 17 features for each N-gram.
     with tqdm(total=len(files)) as progress_bar:
-        for file_info in files.values():
+        for filename, file_info in files.items():
+            if "labels" not in file_info:
+                LOG.warning(
+                    "File %s is unlabeled. Continuing to extract features.",
+                    filename,
+                )
             old_num_grams = len(grams)
             for _line_num, line in file_info["rows"].iterrows():
                 for ngram in ngrammer(line.words):
