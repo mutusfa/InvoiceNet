@@ -314,11 +314,14 @@ def ngrammer(tokens, length=4):
 
 def extract_features(dataframe):
     """
-    Loads a pickled dataframe from the given path, creates n-grams and extracts features
+    Create n-grams and extract features.
+
     :param path: path to pickled dataframe
     :return: dataframe containing n-grams and corresponding features
     """
     LOG.info("\nExtracting features...\n")
+    # Avoid overwriting the original
+    dataframe = copy.deepcopy(dataframe)
     files = _group_by_file(dataframe)
     del dataframe
 
