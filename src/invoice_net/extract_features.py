@@ -97,7 +97,15 @@ def _calculate_distance_between_grams(first, second):
 
 
 def _parses_as_amount(text):
-    amount_pattern = r"(?:^|\s)\d+\.\d+(?:$|\s)"
+    currencies = [r"\$", "USD", "€", "EUR"]
+    currencies_pattern = "|".join(currencies)
+    amount_pattern = (
+        r"(?:^|\s|"
+        + currencies_pattern
+        + r")\d+\.\d+(?:$|\s|"
+        + currencies_pattern
+        + r")"
+    )
     try:
         return re.search(amount_pattern, text)[0]
     except TypeError:  # no matches
@@ -113,8 +121,8 @@ def _process_text(ngram):
     as_number = False
     for word in ngram:
         try:
-            as_date = bool(list(datefinder.find_dates(word)))
-        except OverflowError:
+            as_date = bool(next(datefinder.find_dates(word)))
+        except (StopIteration, OverflowError):
             as_date = False
 
         word_is_number = word.isnumeric()
