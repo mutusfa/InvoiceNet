@@ -170,7 +170,7 @@ def _group_by_file(df):
         x coordinate for each token in each line for every file.
     """
     try:
-        files = {name: {"rows": rows} for name, rows in df.groupby("files")}
+        files = {name: {"rows": rows} for name, rows in df.groupby("file_name")}
     except KeyError:
         LOG.warning(
             "Couldn't find file names. "
@@ -184,8 +184,8 @@ def _group_by_file(df):
         files[filename]["width"] = (
             files[filename]["xmax"] - files[filename]["xmin"]
         )
-        files[filename]["ymin"] = min(ymin for ymin in file_info["rows"].ymin)
-        files[filename]["ymax"] = max(ymax for ymax in file_info["rows"].ymax)
+        files[filename]["ymin"] = min(ymin for ymin in file_info["rows"].y1)
+        files[filename]["ymax"] = max(ymax for ymax in file_info["rows"].y2)
         files[filename]["page_height"] = (
             files[filename]["ymax"] - files[filename]["ymin"]
         )
@@ -201,7 +201,7 @@ def _group_by_file(df):
             avg_token_width = (row.x2 - row.x1) / len(words[row_num])
             token_coords[row_num] = []
             for idx in range(len(words[row_num])):
-                left_offset = row.coords["x1"] + idx * avg_token_width
+                left_offset = row.x1 + idx * avg_token_width
                 token_coords[row_num].append(
                     {"xmin": left_offset, "xmax": left_offset + avg_token_width}
                 )
