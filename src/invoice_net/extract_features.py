@@ -163,7 +163,7 @@ def _text_pattern(raw_text):
 
 
 def _group_by_file(df):
-    """Filters data into individual files.
+    """Filter data into individual files.
 
     Also estimates:
         width and height of each file.
@@ -256,7 +256,7 @@ def _fill_gram_features(ngram, file_info, line):
 
 
 def _find_closest_grams(grams, start=0):
-    """Finds closest ngrams to the left/right and top/down.
+    """Find closest ngrams to the left/right and top/down.
 
     Modifies grams in-place.
     """
