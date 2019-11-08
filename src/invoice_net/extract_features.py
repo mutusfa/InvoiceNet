@@ -37,11 +37,9 @@ page_height:            The height of the page of this N-gram
 
 page_width:             The width of the page of this N-gram
 
-parses_as_amount:       Whether the N-gram parses as a fractional amount
-
 parses_as_date:         Whether the N-gram parses as a date
 
-parses_as_number:       Whether the N-gram parses as an integer
+parses_as_number:       Whether the N-gram parses as a fractional amount
 """
 
 import argparse
@@ -72,7 +70,6 @@ EMPTY_SINGLE_GRAM = {
     "right_margin": 1,
     "width": sys.maxsize,
     "page_height": sys.maxsize,
-    "parses_as_amount": False,
     "parses_as_date": False,
     "parses_as_number": False,
     "labels": 0,
@@ -96,7 +93,7 @@ def _calculate_distance_between_grams(first, second):
     return left, above, right, below, left_margin_offset
 
 
-def _parses_as_amount(text):
+def _parses_as_number(text):
     currencies = [r"\$", "USD", "€", "EUR"]
     currencies_pattern = "|".join(currencies)
     amount_pattern = (
@@ -117,7 +114,6 @@ def _process_text(ngram):
     # TODO check if preserving titles changes anything
     processed_text = []
     as_date = False
-    as_amount = False
     as_number = False
     for word in ngram:
         try:
@@ -125,13 +121,10 @@ def _process_text(ngram):
         except (StopIteration, OverflowError):
             as_date = False
 
-        word_is_number = word.isnumeric()
+        word_is_number = _parses_as_number(word)
         as_number = as_number or word_is_number
 
-        if _parses_as_amount(word):
-            processed_text.append("amount")
-            as_amount = True
-        elif as_date:
+        if as_date:
             processed_text.append("date")
         elif word_is_number:
             processed_text.append("number")
@@ -142,8 +135,8 @@ def _process_text(ngram):
             else:  # keep the same amount of words in raw and processed text
                 # for word-wise labels would correspond to same words
                 processed_text.append(word)
-    as_number = as_number or as_date or as_amount
-    return " ".join(processed_text), as_date, as_amount, as_number
+    as_number = as_number or as_date
+    return " ".join(processed_text), as_date, as_number
 
 
 def _text_pattern(raw_text):
@@ -222,7 +215,6 @@ def _fill_gram_features(ngram, file_info, line):
     (
         gram["processed_text"],
         gram["parses_as_date"],
-        gram["parses_as_amount"],
         gram["parses_as_number"],
     ) = _process_text(ngram)
     raw_text = " ".join(ngram)

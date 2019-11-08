@@ -11,7 +11,7 @@ class DataHandler:
     ]
     auxillary_features = [
         'length', 'line_size', 'position_on_line',
-        'has_digits', 'parses_as_amount', 'parses_as_date', 'parses_as_number'
+        'has_digits', 'parses_as_date', 'parses_as_number'
 #        'page_width', 'page_height',
     ]
 
