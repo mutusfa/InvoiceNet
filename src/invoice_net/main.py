@@ -26,7 +26,7 @@ ap.add_argument("--num_hidden", type=int, default=128,
                 help="size of hidden layer")
 ap.add_argument("--num_filters", type=int,
                 default=100, help="number of filters")
-ap.add_argument("--batch_size", type=int, default=64,
+ap.add_argument("--batch_size", type=int, default=16000,
                 help="size of mini-batch")
 ap.add_argument("--reg_rate", type=float, default=0.0001,
                 help="rate of regularization")

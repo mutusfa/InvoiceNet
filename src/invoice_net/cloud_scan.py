@@ -45,13 +45,13 @@ def parse_args():
         help="path to directory where tensorboard logs should be stored",
     )
     ap.add_argument(
-        "--num_hidden", type=int, default=256, help="size of hidden layer"
+        "--num_hidden", type=int, default=16, help="size of hidden layer"
     )
     ap.add_argument(
         "--num_epochs", type=int, default=20, help="number of epochs"
     )
     ap.add_argument(
-        "--batch_size", type=int, default=128, help="size of mini-batch"
+        "--batch_size", type=int, default=16000, help="size of mini-batch"
     )
     ap.add_argument(
         "--num_layers", type=int, default=1, help="number of layers"
