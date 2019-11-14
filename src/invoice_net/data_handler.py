@@ -1,6 +1,7 @@
 import gzip
 import pickle
 
+import fasttext
 from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import text_to_word_sequence
@@ -79,7 +80,7 @@ class DataHandler:
 
     @property
     def idx2word(self):
-        value = {v: k for k, v in word2idx.items()}
+        value = {v: k for k, v in self.word2idx.items()}
         self.idx2word = value
         return value
 
@@ -87,13 +88,22 @@ class DataHandler:
     def labels(self):
         return self.train_data["labels"]
 
-    def load_embeddings(self, model_path):
+    def load_embeddings(self, model_path, use_model="word2vec"):
         """Loads pre-trained gensim model"""
         print("\nLoading pre-trained embeddings...")
 
-        model = Word2Vec.load(model_path)
-        words = list(model.wv.vocab)
-        embed_size = model.layer1_size
+        if use_model == "word2vec":
+            model = Word2Vec.load(model_path)
+            words = list(model.wv.vocab)
+            embed_size = model.layer1_size
+            get_vector = lambda word: model.wv[word]
+        elif use_model == "fasttext":
+            model = fasttext.load_model(model_path)
+            words = model.words
+            embed_size = model.get_dimension()
+            get_vector = lambda word: model[word]
+        else:
+            raise ValueError(f"Unknown model type {use_model}.")
 
         embed = []
         word2idx = {self.PAD: 0, self.UNKNOWN: 1, self.START: 2, self.END: 3}
@@ -104,7 +114,7 @@ class DataHandler:
         embed.append(np.random.uniform(-0.1, 0.1, embed_size))
 
         for word in words:
-            vector = model.wv[word]
+            vector = get_vector(word)
             embed.append(vector)
             word2idx[word] = len(word2idx)
 

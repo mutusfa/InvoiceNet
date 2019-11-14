@@ -32,7 +32,15 @@ def parse_args():
         help="path to load weights",
     )
     ap.add_argument(
-        "--word2vec", default="model.bin", help="path to word2vec model"
+        "--embedding_model",
+        default="model.bin",
+        help="path to word -> vector embedding model"
+    )
+    ap.add_argument(
+        "--embedding_type",
+        default="word2vec",
+        choices=["word2vec", "fasttext"],
+        help="type of embedding model"
     )
     ap.add_argument(
         "--checkpoint_dir",
@@ -82,7 +90,7 @@ if __name__ == "__main__":
         features = pd.read_pickle(args.data)
 
     data = DataHandler(features, max_len=12)
-    data.load_embeddings(args.word2vec)
+    data.load_embeddings(args.embedding_model, use_model=args.embedding_type)
     data.prepare_data()
     net = InvoiceNetCloudScan(data_handler=data, config=args)
 

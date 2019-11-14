@@ -15,8 +15,10 @@ ap.add_argument("--model_path", default="./model",
                 help="path to directory where trained model should be stored")
 ap.add_argument("--load_weights", default="./checkpoints/InvoiceNet_.157-0.53-0.48.hdf5",
                 help="path to load weights")
-ap.add_argument("--word2vec", default="model.bin",
-                help="path to word2vec model")
+ap.add_argument("--embedding_model", default="model.bin",
+                help="path to word -> vector embedding model")
+ap.add_argument("--embedding_type", default="word2vec",
+                choices=["word2vec", "fasttext"], help="type of embedding model")
 ap.add_argument("--checkpoint_dir", default="./checkpoints",
                 help="path to directory where checkpoints should be stored")
 ap.add_argument("--log_dir", default="./logs",
@@ -46,7 +48,7 @@ with open(args.data, 'rb') as pklfile:
     df = pickle.load(pklfile)
 
 data = DataHandler(df, max_len=12)
-data.load_embeddings(args.word2vec)
+data.load_embeddings(args.embedding_model, use_model=args.embedding_type)
 data.prepare_data()
 
 net = InvoiceNet(data_handler=data, config=args)
