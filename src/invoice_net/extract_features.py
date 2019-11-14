@@ -33,10 +33,6 @@ position_on_line:       Count of words to the left of this N-gram normalized
 
 line_size:              The number of words on this line
 
-page_height:            The height of the page of this N-gram
-
-page_width:             The width of the page of this N-gram
-
 parses_as_date:         Whether the N-gram parses as a date
 
 parses_as_number:       Whether the N-gram parses as a fractional amount
@@ -68,11 +64,9 @@ EMPTY_SINGLE_GRAM = {
     "top_margin": 0,
     "left_margin": 0,
     "right_margin": 1,
-    "width": sys.maxsize,
-    "page_height": sys.maxsize,
     "parses_as_date": False,
     "parses_as_number": False,
-    "labels": 0,
+    "labels": [],
     "closest_ngrams": [-1, -1, -1, -1],  # left, top, right, bottom
 }
 
@@ -205,7 +199,7 @@ def _group_by_file(df):
 
 def _find_ngram_labels(ngram, line):
     left_index = line.words.index(ngram[0])
-    right_index = line.words.index(ngram[-1])
+    right_index = line.words.index(ngram[-1], left_index)
     labels = line.labels.split()[left_index : right_index + 1]
     return [LABEL_DICT[int(l)] for l in labels]
 
