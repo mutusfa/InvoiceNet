@@ -1,3 +1,5 @@
+"""Handles data for nn models."""
+
 import gzip
 import pickle
 
@@ -6,7 +8,19 @@ from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import text_to_word_sequence
 import numpy as np
-import pandas as pd
+
+
+def lazy_property(fn):
+    """Make a property lazy-evaluated."""
+    attr_name = "_lazy_" + fn.__name__
+
+    @property
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, fn(self))
+        return getattr(self, attr_name)
+
+    return _lazy_property
 
 
 class DataHandler:
@@ -33,17 +47,15 @@ class DataHandler:
         self.vocab_size = 0
         self.word2idx = {}
         self.embeddings = None
-        self.embed_size = 300
+        self.embed_size = None
         self.PAD = "<pad>"
         self.UNKNOWN = "<unk>"
-        self.START = "<start>"
-        self.END = "<end>"
         self.label_dict = {0: 0, 1: 1, 2: 2, 8: 3, 14: 4, 18: 5}
         self.num_classes = len(self.label_dict)
         self.train_data = {}
 
     def prepare_data(self):
-        """Prepares data for training"""
+        """Prepare data for training."""
         print("Preparing data")
 
         sequences = [text_to_word_sequence(t) for t in self.data.processed_text]
@@ -78,10 +90,9 @@ class DataHandler:
         features.pop("labels")
         return features
 
-    @property
+    @lazy_property
     def idx2word(self):
         value = {v: k for k, v in self.word2idx.items()}
-        self.idx2word = value
         return value
 
     @property
@@ -89,28 +100,26 @@ class DataHandler:
         return self.train_data["labels"]
 
     def load_embeddings(self, model_path, use_model="word2vec"):
-        """Loads pre-trained gensim model"""
+        """Load pre-trained gensim model."""
         print("\nLoading pre-trained embeddings...")
 
         if use_model == "word2vec":
             model = Word2Vec.load(model_path)
             words = list(model.wv.vocab)
             embed_size = model.layer1_size
-            get_vector = lambda word: model.wv[word]
+            get_vector = lambda word: model.wv[word]  # noqa
         elif use_model == "fasttext":
             model = fasttext.load_model(model_path)
             words = model.words
             embed_size = model.get_dimension()
-            get_vector = lambda word: model[word]
+            get_vector = lambda word: model[word]  # noqa
         else:
             raise ValueError(f"Unknown model type {use_model}.")
 
         embed = []
-        word2idx = {self.PAD: 0, self.UNKNOWN: 1, self.START: 2, self.END: 3}
+        word2idx = {self.PAD: 0, self.UNKNOWN: 1}
 
         embed.append(np.zeros(embed_size, dtype=np.float32))
-        embed.append(np.random.uniform(-0.1, 0.1, embed_size))
-        embed.append(np.random.uniform(-0.1, 0.1, embed_size))
         embed.append(np.random.uniform(-0.1, 0.1, embed_size))
 
         for word in words:
@@ -125,12 +134,12 @@ class DataHandler:
         print("\nSuccessfully loaded pre-trained embeddings!")
 
     def get_word_id(self, token):
-        """Returns the id of a token"""
+        """Return the id of a token."""
         token = token.lower()
         return self.word2idx.get(token, self.word2idx[self.UNKNOWN])
 
     def load_data(self, path):
-        """Loads embeddings and vocab from a zipped pickle file"""
+        """Load embeddings and vocab from a zipped pickle file."""
         with gzip.open(path, "rb") as in_file:
             pkl = pickle.load(in_file)
         self.embeddings = pkl["embeddings"]
