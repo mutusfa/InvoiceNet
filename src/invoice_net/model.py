@@ -2,93 +2,76 @@ import os
 from typing import Any
 
 import numpy as np
+import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     concatenate,
-    Convolution1D,
     Dense,
     Dropout,
     Embedding,
     Input,
     GRU,
 )
-from tensorflow.keras.regularizers import L1L2
-from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
+from tensorflow.keras.callbacks import Callback, TensorBoard, ModelCheckpoint
+from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
+
 
 np.random.seed(1337)
 
 
-def get_recall(predicted_labels, true_labels, target_label):
-    mask = true_labels == target_label
-    return np.mean(predicted_labels[mask] == true_labels[mask])
+class ValPredictionsCallback(Callback):
+    def __init__(self, validation_data, **kwds):
+        super().__init__(**kwds)
+        self.validation_features = validation_data[0]
+        self.validation_labels = validation_data[1]
+
+    def on_epoch_end(self, epoch, logs):
+        predictions = self.model.predict(self.validation_features)
+        predicted_labels = np.argmax(predictions, axis=-1)
+        logs["predictions"] = predictions
+        logs["predicted_labels"] = predicted_labels
 
 
-def get_precision(predicted_labels, true_labels, target_label):
-    mask = true_labels == target_label
-    return (
-        np.sum(predicted_labels[mask] == true_labels[mask]) / true_labels.size
+class F1ScoreCallback(Callback):
+    def __init__(self, validation_data, **kwds):
+        super().__init__(**kwds)
+        self.validation_features = validation_data[0]
+        self.validation_labels = validation_data[1]
+
+    def on_epoch_end(self, epoch, logs):
+        macrof1 = f1_score(
+            logs["predicted_labels"], self.validation_labels, average="macro"
+        )
+        print(f" - macro_f1: {macrof1}")
+        logs["macro_f1"] = macrof1
+
+
+def split_data(data, train_frac=1, val_frac=0, test_frac=0):
+    def inner(array):
+        return np.split(
+            array,
+            [
+                int(train_frac * len(array)),
+                int((train_frac + val_frac) * len(array)),
+            ],
+        )
+
+    assert train_frac + val_frac + test_frac == 1, (
+        f"Fractions should sum up to 1; got train_frac={train_frac}, "
+        f"val_frac={val_frac} and test_frac={test_frac}"
     )
-
-
-def get_f1_score(predicted_labels, true_labels, target_label):
-    precision = get_precision(predicted_labels, true_labels, target_label)
-    recall = get_recall(predicted_labels, true_labels, target_label)
-    return 2 * (precision * recall) / (precision + recall)
-
-
-def get_f1_scores(predictions, true_labels):
-    f1_scores = {}
-    for target_label in true_labels:
-        f1 = get_f1_score(prediction, true_labels, target_label)
-        f1_scores[target_label] = f1
-    macrof1 = sum(f1_scores.values()) / len(true_labels)
-    return f1_scores, macrof1
-
-
-def f1(y_true, y_pred, num_classes=6):
-    def recall(y_true, y_pred):
-        """Recall metric.
-
-        Only computes a batch-wise average of recall.
-
-        Computes the recall, a metric for multi-label classification of
-        how many relevant items are selected.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
-
-    def precision(y_true, y_pred):
-        """Precision metric.
-
-        Only computes a batch-wise average of precision.
-
-        Computes the precision, a metric for multi-label classification of
-        how many selected items are relevant.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
-
-    if K.ndim(y_true) == K.ndim(y_pred):
-        y_true = K.squeeze(y_true, -1)
-    # convert dense predictions to labels
-    y_pred_labels = K.argmax(y_pred, axis=-1)
-    y_pred_labels = K.cast(y_pred_labels, K.floatx())
-
-    macrof1 = 0
-    for target_label in range(num_classes):
-        y_target = K.cast(K.equal(y_true, target_label), K.floatx())
-        y_target_pred = K.cast(K.equal(y_pred_labels, target_label), K.floatx())
-        prec = precision(y_target, y_target_pred)
-        rec = recall(y_target, y_target_pred)
-        f1_score = 2 * ((prec * rec) / (prec + rec + K.epsilon()))
-        macrof1 += f1_score / num_classes
-    return macrof1
+    # Keras allows passing multiple inputs/outputs as dict
+    if isinstance(data, dict):
+        train_dict = dict.fromkeys(data)
+        val_dict = dict.fromkeys(data)
+        test_dict = dict.fromkeys(data)
+        for key, value in data.items():
+            train_dict[key], val_dict[key], test_dict[key] = inner(value)
+        return train_dict, val_dict, test_dict
+    else:
+        return inner(data)
 
 
 class InvoiceNetInterface:
@@ -141,7 +124,7 @@ class InvoiceNetInterface:
         return dict(enumerate(class_weights))
 
     def prepare_data(self, features, labels):
-        """A hook for subclasses to modify data for their own needs"""
+        """Modify data before passing to NN."""
         return features, labels
 
     def train(self):
@@ -150,15 +133,26 @@ class InvoiceNetInterface:
         features, labels = self.prepare_data(
             self.data_handler.features, self.data_handler.labels
         )
-
+        validation_split = 0.125
+        train_features, val_features, _ = split_data(
+            features, 1 - validation_split, validation_split
+        )
+        train_labels, val_labels, _ = split_data(
+            labels, 1 - validation_split, validation_split
+        )
+        validation_data = (val_features, val_labels)
         self.model.fit(
-            features,
-            labels,
+            train_features,
+            train_labels,
             batch_size=self.config.batch_size,
             verbose=True,
             epochs=self.config.num_epochs,
-            callbacks=[self.tensorboard_callback],
-            validation_split=0.125,
+            callbacks=[
+                ValPredictionsCallback(validation_data=validation_data),
+                F1ScoreCallback(validation_data=validation_data),
+                self.tensorboard_callback,
+            ],
+            validation_data=(validation_data),
             shuffle=self.config.shuffle,
             class_weight=self.get_class_weights(self.data_handler.labels),
         )
@@ -178,7 +172,7 @@ class InvoiceNetInterface:
         self.model.compile(
             loss="sparse_categorical_crossentropy",
             optimizer="Adam",
-            metrics=["accuracy", f1],
+            metrics=["accuracy"],
         )
 
 
