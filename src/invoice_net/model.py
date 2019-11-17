@@ -42,8 +42,8 @@ class F1ScoreCallback(Callback):
         macrof1 = f1_score(
             logs["predicted_labels"], self.validation_labels, average="macro"
         )
-        print(f" - macro_f1: {macrof1}")
-        logs["macro_f1"] = macrof1
+        print(f" - val_macro_f1: {macrof1}")
+        logs["val_macro_f1"] = macrof1
 
 
 def split_data(data, train_frac=1, val_frac=0, test_frac=0):
@@ -100,7 +100,7 @@ class InvoiceNetInterface:
 
     @property
     def modelcheckpoints_callback(self):
-        filename_format = ".{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5"
+        filename_format = ".{epoch:02d}-{val_loss:.2f}-{val_macro_f1:.2f}.hdf5"
         return ModelCheckpoint(
             os.path.join(
                 self.config.checkpoint_dir,
@@ -143,6 +143,7 @@ class InvoiceNetInterface:
                 ValPredictionsCallback(validation_data=validation_data),
                 F1ScoreCallback(validation_data=validation_data),
                 self.tensorboard_callback,
+                self.modelcheckpoints_callback,
             ],
             validation_data=(validation_data),
             shuffle=self.config.shuffle,
