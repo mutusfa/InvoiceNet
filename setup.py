@@ -21,13 +21,10 @@ setuptools.setup(
     ],
     install_requires=[
         "datefinder",
-        "gensim",
         "Keras",
-        "matplotlib",
         "numpy",
         "nltk",
         "pandas",
-        "PyYAML",
         "sklearn",
         "tensorflow",
         "tqdm",

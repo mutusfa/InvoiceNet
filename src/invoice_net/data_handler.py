@@ -141,7 +141,7 @@ class DataHandler:
         return self.validation_data["labels"]
 
     def load_embeddings(self, model_path):
-        """Load pre-trained gensim model."""
+        """Load pre-trained fasttext model."""
         print("\nLoading pre-trained embeddings...")
 
         self.fasttext = fasttext.load_model(model_path)
