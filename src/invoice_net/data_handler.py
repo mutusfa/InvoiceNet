@@ -117,20 +117,28 @@ class DataHandler:
             features, 1 - self.validation_split, self.validation_split
         )
 
-        labels = self.data.apply(
-            lambda x: max(*x.labels, 0), axis="columns"
-        ).values
-        (
-            self.train_data["labels"],
-            self.validation_data["labels"],
-            _,
-        ) = split_data(labels, 1 - self.validation_split, self.validation_split)
+        try:
+            labels = self.data.apply(
+                lambda x: max(*x.labels, 0), axis="columns"
+            ).values
+        except AttributeError:
+            print("Found no labels; continuing to work without labels")
+            self.train_data["labels"] = None
+            self.validation_data["labels"] = None
+        else:
+            (
+                self.train_data["labels"],
+                self.validation_data["labels"],
+                _,
+            ) = split_data(
+                labels, 1 - self.validation_split, self.validation_split
+            )
 
     @property
     def features(self):
         # only keys are copied so this is cheap
         features = self.train_data.copy()
-        features.pop("labels")
+        features.pop("labels", None)
         return features
 
     @property
@@ -141,7 +149,7 @@ class DataHandler:
     def validation_features(self):
         # only keys are copied so this is cheap
         features = self.validation_data.copy()
-        features.pop("labels")
+        features.pop("labels", None)
         return features
 
     @property
