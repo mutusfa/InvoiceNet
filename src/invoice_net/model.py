@@ -63,9 +63,6 @@ class InvoiceNetInterface:
         if not os.path.exists(self.config.checkpoint_dir):
             os.makedirs(self.config.checkpoint_dir)
 
-        if not os.path.exists(self.config.model_path):
-            os.makedirs(self.config.model_path)
-
     @property
     def tensorboard_callback(self):
         return TensorBoard(
@@ -160,16 +157,16 @@ class InvoiceNet(InvoiceNetInterface):
             trainable=False,
         )(words_input)
         output = GRU(
-            config.num_hidden,
+            config.size_hidden,
             dropout=0.5,
             recurrent_dropout=0.5,
             go_backwards=True,
         )(words)
         output = concatenate([output, coordinates, aux_features])
-        output = Dense(config.num_hidden, activation="relu")(output)
-        output = Dense(config.num_hidden, activation="relu")(output)
+        output = Dense(config.size_hidden, activation="relu")(output)
+        output = Dense(config.size_hidden, activation="relu")(output)
         output = Dropout(0.5)(output)
-        output = Dense(config.num_hidden, activation="relu")(output)
+        output = Dense(config.size_hidden, activation="relu")(output)
         output = Dense(data_handler.num_classes, activation="softmax")(output)
 
         return Model(
@@ -205,7 +202,7 @@ class InvoiceNetCloudScan(InvoiceNetInterface):
             trainable=False,
         )(words_input)
         words = GRU(
-            config.num_hidden, dropout=0, recurrent_dropout=0, go_backwards=True
+            config.size_hidden, dropout=0, recurrent_dropout=0, go_backwards=True
         )(words)
         output = concatenate([words, coordinates, aux_features])
         output = Dense(
