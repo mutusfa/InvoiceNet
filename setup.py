@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="invoice-net-mutusfa",
-    version="0.0.2",
+    version="0.0.3",
     author="Julius Juodagalvis",
     author_email="juodagalvis@protonmail.com",
     description="Models for invoice scanning",
