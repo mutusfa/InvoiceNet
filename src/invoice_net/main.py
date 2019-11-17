@@ -16,9 +16,7 @@ def parse_args():
 def main():
     config = parse_args()
     data = DataHandler(get_data_for_nn(config), max_len=12)
-    data.load_embeddings(
-        config.embedding_model, use_model=config.embedding_type
-    )
+    data.load_embeddings(config.embedding_model)
     data.prepare_data()
 
     net = InvoiceNet(data_handler=data, config=config)

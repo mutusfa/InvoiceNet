@@ -20,14 +20,8 @@ parent_parser.add_argument("--raw_data", help="path to unprocessed data")
 parent_parser.add_argument("--load_weights", help="path to load weights")
 parent_parser.add_argument(
     "--embedding_model",
-    default="model.bin",
+    default="data/model.bin",
     help="path to word -> vector embedding model",
-)
-parent_parser.add_argument(
-    "--embedding_type",
-    default="word2vec",
-    choices=["word2vec", "fasttext"],
-    help="type of embedding model",
 )
 parent_parser.add_argument(
     "--checkpoint_dir",

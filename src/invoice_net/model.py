@@ -8,8 +8,8 @@ from tensorflow.keras.layers import (
     Dense,
     Dropout,
     Embedding,
+    Flatten,
     Input,
-    GRU,
 )
 from tensorflow.keras.callbacks import Callback, TensorBoard, ModelCheckpoint
 from sklearn.metrics import f1_score
@@ -141,22 +141,13 @@ class InvoiceNet(InvoiceNetInterface):
             dtype="float32",
             name="aux_features",
         )
-        words_input = Input(
-            shape=(data_handler.max_length,), dtype="int32", name="words_input"
+        sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="sentences_embeddings",
         )
-        words = Embedding(
-            data_handler.vocab_size,
-            data_handler.embeddings.shape[1],
-            weights=[data_handler.embeddings],
-            trainable=False,
-        )(words_input)
-        output = GRU(
-            config.size_hidden,
-            dropout=0.5,
-            recurrent_dropout=0.5,
-            go_backwards=True,
-        )(words)
-        output = concatenate([output, coordinates, aux_features])
+        embeddings = Flatten()(sentences_embeddings)
+        output = concatenate([embeddings, coordinates, aux_features])
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dropout(0.5)(output)
@@ -164,7 +155,7 @@ class InvoiceNet(InvoiceNetInterface):
         output = Dense(data_handler.num_classes, activation="softmax")(output)
 
         return Model(
-            inputs=[words_input, coordinates, aux_features], outputs=[output]
+            inputs=[sentences_embeddings, coordinates, aux_features], outputs=[output]
         )
         # self.model.summary()
 
@@ -186,28 +177,19 @@ class InvoiceNetCloudScan(InvoiceNetInterface):
             dtype="float32",
             name="aux_features",
         )
-        words_input = Input(
-            shape=(data_handler.max_length,), dtype="int32", name="words_input"
+        sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="sentences_embeddings",
         )
-        words = Embedding(
-            data_handler.vocab_size,
-            data_handler.embeddings.shape[1],
-            weights=[data_handler.embeddings],
-            trainable=False,
-        )(words_input)
-        words = GRU(
-            config.size_hidden,
-            dropout=0,
-            recurrent_dropout=0,
-            go_backwards=True,
-        )(words)
-        output = concatenate([words, coordinates, aux_features])
+        embeddings = Flatten()(sentences_embeddings)
+        output = concatenate([embeddings, coordinates, aux_features])
         output = Dense(
             data_handler.num_classes, activation="softmax", name="output"
         )(output)
 
         return Model(
-            inputs=[words_input, coordinates, aux_features], outputs=[output]
+            inputs=[sentences_embeddings, coordinates, aux_features], outputs=[output]
         )
 
     def load_weights(self, path):
