@@ -2,8 +2,6 @@ import os
 from typing import Any
 
 import numpy as np
-import tensorflow as tf
-import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     concatenate,
@@ -123,16 +121,10 @@ class InvoiceNetInterface:
         )
         return dict(enumerate(class_weights))
 
-    def prepare_data(self, features, labels):
-        """Modify data before passing to NN."""
-        return features, labels
-
     def train(self):
         print("\nInitializing training...")
         self._create_needed_dirs()
-        features, labels = self.prepare_data(
-            self.data_handler.features, self.data_handler.labels
-        )
+        features, labels = self.data_handler.features, self.data_handler.labels
         validation_split = 0.125
         train_features, val_features, _ = split_data(
             features, 1 - validation_split, validation_split
@@ -220,29 +212,6 @@ class InvoiceNet(InvoiceNetInterface):
         self.model.load_weights(path)
         print("\nSuccessfully loaded weights from {}".format(path))
 
-    def evaluate(self):
-        predictions = self.model.predict(
-            [
-                self.data_handler.train_data["inputs"],
-                self.data_handler.train_data["coordinates"],
-            ],
-            verbose=True,
-        )
-        predictions = predictions.argmax(axis=-1)
-        acc = np.sum(
-            predictions
-            == (self.data_handler.train_data["labels"])
-            / float(len(self.data_handler.train_data["labels"]))
-        )
-        print("\nTest Accuracy: {}".format(acc))
-        return predictions
-
-    def f1_score(self, predictions):
-        true_labels = self.data_handler.train_data["labels"]
-        f1_scores, macrof1 = get_f1_scores(predictions, true_labels)
-        print("\nMacro-Averaged F1: %.4f\n" % macrof1)
-        return f1_scores, macrof1
-
 
 class InvoiceNetCloudScan(InvoiceNetInterface):
     def create_model(self, data_handler, config):
@@ -281,16 +250,3 @@ class InvoiceNetCloudScan(InvoiceNetInterface):
         """Loads weights from the given model file"""
         self.model.load_weights(path)
         print("\nSuccessfully loaded weights from {}".format(path))
-
-    def evaluate(self, data):
-        x_test, y_test = self.prepare_data(data)
-        predictions = self.model.predict([x_test], verbose=True)
-        predictions = predictions.argmax(axis=-1)
-        acc = np.sum(predictions == y_test) / float(len(y_test))
-        print("\nTest Accuracy: {}".format(acc))
-        return predictions
-
-    def f1_score(self, predictions, ground_truth):
-        f1_scores, macrof1 = get_f1_scores(predictions, ground_truth)
-        print("\nMacro-Averaged F1: %.4f\n" % macrof1)
-        return macrof1
