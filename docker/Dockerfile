@@ -1,19 +1,15 @@
-FROM tensorflow/tensorflow:latest-gpu-py3
-
+FROM tensorflow/tensorflow:latest-gpu-py3 as base
 WORKDIR /app
 
-RUN apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y python3-pip \
- && rm -rf /var/lib/apt/lists/* \
- && pip3 install pipenv
-
-COPY ./Pipfile .
-COPY ./Pipfile.lock .
-
+FROM base as dirty
 COPY ./src ./src
 COPY ./setup.py .
 COPY ./README.md .
 COPY ./LICENCE.md .
 
-RUN pipenv install --system --deploy
+RUN pip3 install .
+
+
+# idea - just don't rebuild if dependencies are not changed
+FROM dirty as dev
+ENV PYTHONPATH=$PYTHONPATH:/app/src/

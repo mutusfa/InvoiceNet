@@ -1,5 +1,6 @@
 # virtual environment
 env/
+.direnv
 
 # setup-tools output
 dist/
