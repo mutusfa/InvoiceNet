@@ -46,32 +46,6 @@ class F1ScoreCallback(Callback):
         logs["val_macro_f1"] = macrof1
 
 
-def split_data(data, train_frac=1, val_frac=0, test_frac=0):
-    def inner(array):
-        return np.split(
-            array,
-            [
-                int(train_frac * len(array)),
-                int((train_frac + val_frac) * len(array)),
-            ],
-        )
-
-    assert train_frac + val_frac + test_frac == 1, (
-        f"Fractions should sum up to 1; got train_frac={train_frac}, "
-        f"val_frac={val_frac} and test_frac={test_frac}"
-    )
-    # Keras allows passing multiple inputs/outputs as dict
-    if isinstance(data, dict):
-        train_dict = dict.fromkeys(data)
-        val_dict = dict.fromkeys(data)
-        test_dict = dict.fromkeys(data)
-        for key, value in data.items():
-            train_dict[key], val_dict[key], test_dict[key] = inner(value)
-        return train_dict, val_dict, test_dict
-    else:
-        return inner(data)
-
-
 class InvoiceNetInterface:
     def __init__(self, data_handler, config):
         print("Initializing model...")
@@ -124,18 +98,13 @@ class InvoiceNetInterface:
     def train(self):
         print("\nInitializing training...")
         self._create_needed_dirs()
-        features, labels = self.data_handler.features, self.data_handler.labels
-        validation_split = 0.125
-        train_features, val_features, _ = split_data(
-            features, 1 - validation_split, validation_split
+        validation_data = (
+            self.data_handler.validation_features,
+            self.data_handler.validation_labels,
         )
-        train_labels, val_labels, _ = split_data(
-            labels, 1 - validation_split, validation_split
-        )
-        validation_data = (val_features, val_labels)
         self.model.fit(
-            train_features,
-            train_labels,
+            self.data_handler.features,
+            self.data_handler.labels,
             batch_size=self.config.batch_size,
             verbose=True,
             epochs=self.config.num_epochs,

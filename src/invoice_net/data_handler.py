@@ -23,6 +23,37 @@ def lazy_property(fn):
     return _lazy_property
 
 
+def split_data(data, train_frac=1, val_frac=0, test_frac=0):
+    def inner(array):
+        return np.split(
+            array,
+            [
+                int(train_frac * len(array)),
+                int((train_frac + val_frac) * len(array)),
+            ],
+        )
+
+    assert train_frac + val_frac + test_frac == 1, (
+        f"Fractions should sum up to 1; got train_frac={train_frac}, "
+        f"val_frac={val_frac} and test_frac={test_frac}"
+    )
+    # Keras allows passing multiple inputs/outputs as dict
+    if isinstance(data, dict):
+        train_dict = dict.fromkeys(data)
+        val_dict = dict.fromkeys(data)
+        test_dict = dict.fromkeys(data)
+        for key, value in data.items():
+            train_dict[key], val_dict[key], test_dict[key] = inner(value)
+        return train_dict, val_dict, test_dict
+    elif isinstance(data, list):
+        raise ValueError(
+            f"Ambigous data type {type(data)}.\n"
+            "Use np.array for single input and dict for multiple inputs instead"
+        )
+    else:
+        return inner(data)
+
+
 class DataHandler:
     coordinates_features = [
         "bottom_margin",
@@ -40,7 +71,7 @@ class DataHandler:
         "parses_as_number",
     ]
 
-    def __init__(self, data=None, max_len=10):
+    def __init__(self, data=None, max_len=10, validation_split=0.125):
         print("Initializing data handler")
         self.data = data
         self.max_length = max_len
@@ -52,7 +83,9 @@ class DataHandler:
         self.UNKNOWN = "<unk>"
         self.label_dict = {0: 0, 1: 1, 2: 2, 8: 3, 14: 4, 18: 5}
         self.num_classes = len(self.label_dict)
+        self.validation_split = validation_split
         self.train_data = {}
+        self.validation_data = {}
 
     def prepare_data(self):
         """Prepare data for training."""
@@ -72,16 +105,26 @@ class DataHandler:
             encoded, maxlen=self.max_length, padding="post", truncating="post"
         )
 
-        self.train_data["words_input"] = padded
-        self.train_data["labels"] = self.data.apply(
-            lambda x: max(*x.labels, 0), axis="columns"
-        ).values
-        self.train_data["coordinates"] = self.data.loc[
+        features = {}
+        features["words_input"] = padded
+        features["coordinates"] = self.data.loc[
             :, self.coordinates_features
         ].values
-        self.train_data["aux_features"] = self.data.loc[
+        features["aux_features"] = self.data.loc[
             :, self.auxillary_features
         ].values.astype(float)
+        self.train_data, self.validation_data, _ = split_data(
+            features, 1 - self.validation_split, self.validation_split
+        )
+
+        labels = self.data.apply(
+            lambda x: max(*x.labels, 0), axis="columns"
+        ).values
+        (
+            self.train_data["labels"],
+            self.validation_data["labels"],
+            _,
+        ) = split_data(labels, 1 - self.validation_split, self.validation_split)
 
     @property
     def features(self):
@@ -90,14 +133,25 @@ class DataHandler:
         features.pop("labels")
         return features
 
+    @property
+    def labels(self):
+        return self.train_data["labels"]
+
+    @property
+    def validation_features(self):
+        # only keys are copied so this is cheap
+        features = self.validation_data.copy()
+        features.pop("labels")
+        return features
+
+    @property
+    def validation_labels(self):
+        return self.validation_data["labels"]
+
     @lazy_property
     def idx2word(self):
         value = {v: k for k, v in self.word2idx.items()}
         return value
-
-    @property
-    def labels(self):
-        return self.train_data["labels"]
 
     def load_embeddings(self, model_path, use_model="word2vec"):
         """Load pre-trained gensim model."""
