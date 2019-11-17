@@ -16,9 +16,6 @@ from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
 
 
-np.random.seed(1337)
-
-
 class ValPredictionsCallback(Callback):
     def __init__(self, validation_data, **kwds):
         super().__init__(**kwds)
@@ -155,7 +152,8 @@ class InvoiceNet(InvoiceNetInterface):
         output = Dense(data_handler.num_classes, activation="softmax")(output)
 
         return Model(
-            inputs=[sentences_embeddings, coordinates, aux_features], outputs=[output]
+            inputs=[sentences_embeddings, coordinates, aux_features],
+            outputs=[output],
         )
         # self.model.summary()
 
@@ -189,7 +187,8 @@ class InvoiceNetCloudScan(InvoiceNetInterface):
         )(output)
 
         return Model(
-            inputs=[sentences_embeddings, coordinates, aux_features], outputs=[output]
+            inputs=[sentences_embeddings, coordinates, aux_features],
+            outputs=[output],
         )
 
     def load_weights(self, path):
