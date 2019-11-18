@@ -150,6 +150,11 @@ class InvoiceNetInterface:
             metrics=["accuracy"],
         )
 
+    def load_weights(self, path):
+        """Load weights from the given model file."""
+        self.model.load_weights(path)
+        print("\nSuccessfully loaded weights from {}".format(path))
+
 
 class InvoiceNet(InvoiceNetInterface):
     def create_model(self, data_handler, config):
@@ -180,12 +185,6 @@ class InvoiceNet(InvoiceNetInterface):
             inputs=[sentences_embeddings, coordinates, aux_features],
             outputs=[output],
         )
-        # self.model.summary()
-
-    def load_weights(self, path):
-        """Loads weights from the given model file"""
-        self.model.load_weights(path)
-        print("\nSuccessfully loaded weights from {}".format(path))
 
 
 class InvoiceNetCloudScan(InvoiceNetInterface):
@@ -215,8 +214,3 @@ class InvoiceNetCloudScan(InvoiceNetInterface):
             inputs=[sentences_embeddings, coordinates, aux_features],
             outputs=[output],
         )
-
-    def load_weights(self, path):
-        """Loads weights from the given model file"""
-        self.model.load_weights(path)
-        print("\nSuccessfully loaded weights from {}".format(path))
