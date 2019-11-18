@@ -138,6 +138,12 @@ class InvoiceNetInterface:
             class_weight=self.get_class_weights(self.data_handler.labels),
         )
 
+        self.model.save_weights(
+            os.path.join(
+                self.config.model_path, self.__class__.__name__ + ".model"
+            )
+        )
+
     def create_model(self, data_handler, config) -> Any:
         raise NotImplementedError(
             "Model should be defined in create_model method"

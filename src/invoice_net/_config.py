@@ -29,6 +29,9 @@ parent_parser.add_argument(
     help="path to directory where checkpoints should be stored",
 )
 parent_parser.add_argument(
+    "--model_path", help="path to save model after training"
+)
+parent_parser.add_argument(
     "--log_dir",
     default="./logs",
     help="path to directory where tensorboard logs should be stored",

@@ -1,20 +1,21 @@
 import argparse
-import pickle
 
 from invoice_net.data_handler import DataHandler
 from invoice_net.model import InvoiceNet
 from invoice_net._config import parent_parser, get_data_for_nn
 
 
-ap = argparse.ArgumentParser()
+parent_parser.set_defaults(
+    load_weights="./model/InvoiceNet.hdf5", model_path="./model/InvoiceNet.hdf5"
+)
 
 
 def parse_args():
     return parent_parser.parse_args()
 
 
-def main():
-    config = parse_args()
+def main(config=None):
+    config = config or parse_args()
     data = DataHandler(get_data_for_nn(config), max_len=12)
     data.load_embeddings(config.embedding_model)
     data.prepare_data()
