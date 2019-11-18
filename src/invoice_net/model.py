@@ -2,6 +2,7 @@ import os
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     concatenate,
@@ -12,7 +13,7 @@ from tensorflow.keras.layers import (
     Input,
 )
 from tensorflow.keras.callbacks import Callback, TensorBoard, ModelCheckpoint
-from sklearn.metrics import f1_score
+from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.utils.class_weight import compute_class_weight
 
 
@@ -41,6 +42,27 @@ class F1ScoreCallback(Callback):
         )
         print(f" - val_macro_f1: {macrof1}")
         logs["val_macro_f1"] = macrof1
+
+
+class ConfusionMatrixCallback(Callback):
+    def __init__(self, validation_data, period=1, **kwds):
+        super().__init__(**kwds)
+        self.validation_features = validation_data[0]
+        self.validation_labels = validation_data[1]
+        self.period = period
+
+    def on_epoch_end(self, epoch, logs):
+        if not (epoch and epoch % self.period == 0):
+            return
+        matrix = confusion_matrix(
+            self.validation_labels, logs["predicted_labels"]
+        )
+        matrix = pd.DataFrame(
+            matrix,
+            columns=[f"pred_{i}" for i in range(matrix.shape[0])],
+            index=[f"true_{i}" for i in range(matrix.shape[0])],
+        )
+        print(f"\nConfusion matrix:\n{matrix}")
 
 
 class InvoiceNetInterface:
@@ -107,6 +129,9 @@ class InvoiceNetInterface:
                 F1ScoreCallback(validation_data=validation_data),
                 self.tensorboard_callback,
                 self.modelcheckpoints_callback,
+                ConfusionMatrixCallback(
+                    validation_data=validation_data, period=5
+                ),
             ],
             validation_data=(validation_data),
             shuffle=self.config.shuffle,
