@@ -12,57 +12,16 @@ from tensorflow.keras.layers import (
     Flatten,
     Input,
 )
-from tensorflow.keras.callbacks import Callback, TensorBoard, ModelCheckpoint
-from sklearn.metrics import confusion_matrix, f1_score
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.utils.class_weight import compute_class_weight
 
-
-class ValPredictionsCallback(Callback):
-    def __init__(self, validation_data, **kwds):
-        super().__init__(**kwds)
-        self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
-
-    def on_epoch_end(self, epoch, logs):
-        predictions = self.model.predict(self.validation_features)
-        predicted_labels = np.argmax(predictions, axis=-1)
-        logs["predictions"] = predictions
-        logs["predicted_labels"] = predicted_labels
-
-
-class F1ScoreCallback(Callback):
-    def __init__(self, validation_data, **kwds):
-        super().__init__(**kwds)
-        self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
-
-    def on_epoch_end(self, epoch, logs):
-        macrof1 = f1_score(
-            logs["predicted_labels"], self.validation_labels, average="macro"
-        )
-        print(f" - val_macro_f1: {macrof1}")
-        logs["val_macro_f1"] = macrof1
-
-
-class ConfusionMatrixCallback(Callback):
-    def __init__(self, validation_data, period=1, **kwds):
-        super().__init__(**kwds)
-        self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
-        self.period = period
-
-    def on_epoch_end(self, epoch, logs):
-        if not (epoch and epoch % self.period == 0):
-            return
-        matrix = confusion_matrix(
-            self.validation_labels, logs["predicted_labels"]
-        )
-        matrix = pd.DataFrame(
-            matrix,
-            columns=[f"pred_{i}" for i in range(matrix.shape[0])],
-            index=[f"true_{i}" for i in range(matrix.shape[0])],
-        )
-        print(f"\nConfusion matrix:\n{matrix}")
+from invoice_net.metrics import (
+    convert_to_labels,
+    labeled_confusion_matrix,
+    ConfusionMatrixCallback,
+    F1ScoreCallback,
+    ValPredictionsCallback,
+)
 
 
 class InvoiceNetInterface:
@@ -138,11 +97,27 @@ class InvoiceNetInterface:
             class_weight=self.get_class_weights(self.data_handler.labels),
         )
 
-        self.model.save_weights(
-            os.path.join(
-                self.config.model_path, self.__class__.__name__ + ".model"
-            )
+        self.model.save_weights(os.path.join(self.config.model_path))
+
+    def evaluate(self):
+        predictions = self.model.predict(self.data_handler.test_features)
+        predicted_labels = convert_to_labels(predictions)
+        raw_text_comparison_df = pd.DataFrame(
+            {
+                "raw_text": self.data_handler.test_data["raw_text"],
+                "true": self.data_handler.test_labels,
+                "pred": predicted_labels,
+            }
         )
+        with pd.option_context(
+            "display.max_rows", None, "display.max_columns", None
+        ):
+            print(raw_text_comparison_df)
+        matrix = labeled_confusion_matrix(
+            self.data_handler.test_labels, predicted_labels
+        )
+        print(matrix)
+        return raw_text_comparison_df, matrix
 
     def create_model(self, data_handler, config) -> Any:
         raise NotImplementedError(

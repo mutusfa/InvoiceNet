@@ -64,19 +64,21 @@ class DataHandler:
         "parses_as_date",
         "parses_as_number",
     ]
+    debugging_features = ["raw_text", "processed_text"]
 
-    def __init__(self, data=None, max_len=10, validation_split=0.125):
+    def __init__(self, data=None, validation_split=0.125, test_split=0.1):
         print("Initializing data handler")
         self.data = data
-        self.max_length = max_len
         self.word2idx = {}
         self.embed_size = None
         self.fasttext = None
         self.label_dict = {0: 0, 1: 1, 2: 2, 8: 3, 14: 4, 18: 5}
         self.num_classes = len(self.label_dict)
         self.validation_split = validation_split
+        self.test_split = test_split
         self.train_data = {}
         self.validation_data = {}
+        self.test_data = {}
 
     def prepare_data(self):
         """Prepare data for training."""
@@ -97,8 +99,13 @@ class DataHandler:
         features["aux_features"] = self.data.loc[
             :, self.auxillary_features
         ].values.astype(float)
-        self.train_data, self.validation_data, _ = split_data(
-            features, 1 - self.validation_split, self.validation_split
+        for key in self.debugging_features:
+            features[key] = self.data.loc[:, key].values
+        self.train_data, self.validation_data, self.test_data = split_data(
+            features,
+            1 - self.validation_split - self.test_split,
+            self.validation_split,
+            self.test_split,
         )
 
         try:
@@ -113,17 +120,25 @@ class DataHandler:
             (
                 self.train_data["labels"],
                 self.validation_data["labels"],
-                _,
+                self.test_data["labels"],
             ) = split_data(
-                labels, 1 - self.validation_split, self.validation_split
+                labels,
+                1 - self.validation_split - self.test_split,
+                self.validation_split,
+                self.test_split,
             )
+
+    def _features(self, data_dict):
+        """Return features for nn use."""
+        # only keys are copied so this is cheap
+        features = data_dict.copy()
+        for key in ("labels", *self.debugging_features):
+            features.pop(key, None)
+        return features
 
     @property
     def features(self):
-        # only keys are copied so this is cheap
-        features = self.train_data.copy()
-        features.pop("labels", None)
-        return features
+        return self._features(self.train_data)
 
     @property
     def labels(self):
@@ -131,14 +146,19 @@ class DataHandler:
 
     @property
     def validation_features(self):
-        # only keys are copied so this is cheap
-        features = self.validation_data.copy()
-        features.pop("labels", None)
-        return features
+        return self._features(self.validation_data)
 
     @property
     def validation_labels(self):
         return self.validation_data["labels"]
+
+    @property
+    def test_features(self):
+        return self._features(self.test_data)
+
+    @property
+    def test_labels(self):
+        return self.test_data["labels"]
 
     def load_embeddings(self, model_path):
         """Load pre-trained fasttext model."""
