@@ -12,7 +12,7 @@ def _volume(relative_path):
 
 @task
 def gpu(context, model_args=""):
-    volumes = ["data", "logs", "model", "src"]
+    volumes = ["checkpoints", "data", "logs", "model", "src"]
     volumes_option_string = " ".join((_volume(v) for v in volumes))
     context.run(
         f"docker run "
