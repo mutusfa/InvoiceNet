@@ -65,6 +65,12 @@ class DataHandler:
         "parses_as_number",
     ]
     debugging_features = ["raw_text", "processed_text"]
+    human_readable_labels = {
+        0: "unclassified",
+        1: "invoice_date",
+        2: "document_id",
+        3: "amount_total",
+    }
 
     def __init__(self, data=None, validation_split=0.125, test_split=0.1):
         print("Initializing data handler")

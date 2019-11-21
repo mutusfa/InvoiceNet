@@ -1,4 +1,5 @@
 """Custom metrics/callbacks for invoice_net."""
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -7,7 +8,7 @@ from tensorflow.keras.callbacks import Callback
 
 
 def convert_to_labels(
-    predictions: np.ndarray, threshold: float = 0.5
+    predictions: np.ndarray, threshold: float = 0.7
 ) -> np.ndarray:
     """Convert one-hot encoded predictions to labels.
 
@@ -20,13 +21,23 @@ def convert_to_labels(
 
 
 def labeled_confusion_matrix(
-    y_true: np.ndarray, y_pred: np.ndarray
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    human_readable_labels: Dict[int, str] = None,
 ) -> pd.DataFrame:
     matrix = confusion_matrix(y_true, y_pred)
+    human_readable_labels = human_readable_labels or {
+        i: str(i) for i in range(matrix.shape[0])
+    }
+
     matrix = pd.DataFrame(
         matrix,
-        columns=[f"pred_{i}" for i in range(matrix.shape[0])],
-        index=[f"true_{i}" for i in range(matrix.shape[0])],
+        columns=[
+            f"pred_{human_readable_labels[i]}" for i in range(matrix.shape[0])
+        ],
+        index=[
+            f"true_{human_readable_labels[i]}" for i in range(matrix.shape[0])
+        ],
     )
     return matrix
 
@@ -59,16 +70,21 @@ class F1ScoreCallback(Callback):
 
 
 class ConfusionMatrixCallback(Callback):
-    def __init__(self, validation_data, period=1, **kwds):
+    def __init__(
+        self, validation_data, period=1, human_readable_labels=None, **kwds
+    ):
         super().__init__(**kwds)
         self.validation_features = validation_data[0]
         self.validation_labels = validation_data[1]
         self.period = period
+        self.human_readable_labels = human_readable_labels
 
     def on_epoch_end(self, epoch, logs):
         if not (epoch and epoch % self.period == 0):
             return
         matrix = labeled_confusion_matrix(
-            self.validation_labels, logs["predicted_labels"]
+            self.validation_labels,
+            logs["predicted_labels"],
+            self.human_readable_labels,
         )
         print(f"\nConfusion matrix for validation data:\n{matrix}")

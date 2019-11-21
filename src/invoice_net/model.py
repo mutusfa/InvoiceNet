@@ -55,11 +55,12 @@ class InvoiceNetInterface:
                 self.config.checkpoint_dir,
                 self.__class__.__name__ + filename_format,
             ),
-            monitor="val_loss",
+            monitor="val_macro_f1",
             verbose=0,
             save_best_only=True,
             save_weights_only=True,
             mode="auto",
+            period=5,
         )
 
     def get_class_weights(self, true_labels):
@@ -89,7 +90,9 @@ class InvoiceNetInterface:
                 self.tensorboard_callback,
                 self.modelcheckpoints_callback,
                 ConfusionMatrixCallback(
-                    validation_data=validation_data, period=5
+                    validation_data=validation_data,
+                    period=5,
+                    human_readable_label=self.data_handler.human_readable_labels,
                 ),
             ],
             validation_data=(validation_data),
@@ -101,22 +104,35 @@ class InvoiceNetInterface:
 
     def evaluate(self):
         predictions = self.model.predict(self.data_handler.test_features)
-        predicted_labels = convert_to_labels(predictions)
+        predicted_labels = convert_to_labels(predictions, threshold=0.7)
         raw_text_comparison_df = pd.DataFrame(
             {
                 "raw_text": self.data_handler.test_data["raw_text"],
-                "true": self.data_handler.test_labels,
-                "pred": predicted_labels,
+                "true": [
+                    self.data_handler.human_readable_labels[i]
+                    for i in self.data_handler.test_labels
+                ],
+                "pred": [
+                    self.data_handler.human_readable_labels[i]
+                    for i in predicted_labels
+                ],
             }
         )
+        matrix = labeled_confusion_matrix(
+            self.data_handler.test_labels,
+            predicted_labels,
+            self.data_handler.human_readable_labels,
+        )
         with pd.option_context(
-            "display.max_rows", None, "display.max_columns", None
+            "display.max_rows",
+            None,
+            "display.max_columns",
+            None,
+            "display.width",
+            0,
         ):
             print(raw_text_comparison_df)
-        matrix = labeled_confusion_matrix(
-            self.data_handler.test_labels, predicted_labels
-        )
-        print(matrix)
+            print(matrix)
         return raw_text_comparison_df, matrix
 
     def create_model(self, data_handler, config) -> Any:
