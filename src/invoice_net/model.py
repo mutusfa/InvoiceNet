@@ -12,7 +12,8 @@ from tensorflow.keras.layers import (
     Flatten,
     Input,
 )
-from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
+from tensorflow.keras.callbacks import TensorBoard
+from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
 from sklearn.utils.class_weight import compute_class_weight
 
 from invoice_net.metrics import (
@@ -41,26 +42,40 @@ class InvoiceNetInterface:
         if not os.path.exists(self.config.checkpoint_dir):
             os.makedirs(self.config.checkpoint_dir)
 
-    @property
-    def tensorboard_callback(self):
+    def tensorboard_callback(self, period=5):
         return TensorBoard(
-            log_dir=self.config.log_dir, histogram_freq=1, write_graph=True
+            log_dir=self.config.log_dir,
+            histogram_freq=period,
+            write_graph=True,
+            write_images=True,
         )
 
-    @property
-    def modelcheckpoints_callback(self):
-        filename_format = ".{epoch:02d}-{val_loss:.2f}-{val_macro_f1:.2f}.hdf5"
+    def metrics_callbacks(self, validation_data, period=5):
+        return [
+            ValPredictionsCallback(
+                validation_data=validation_data, period=period
+            ),
+            F1ScoreCallback(validation_data=validation_data, period=period),
+            ConfusionMatrixCallback(
+                validation_data=validation_data,
+                human_readable_labels=self.data_handler.human_readable_labels,
+                period=period,
+            ),
+        ]
+
+    def modelcheckpoints_callback(self, period=5):
+        filename_format = ".{epoch:02d}-{val_loss:.2f}.hdf5"
         return ModelCheckpoint(
             os.path.join(
                 self.config.checkpoint_dir,
                 self.__class__.__name__ + filename_format,
             ),
-            monitor="val_macro_f1",
+            monitor="val_loss",
             verbose=0,
             save_best_only=True,
             save_weights_only=True,
             mode="auto",
-            period=5,
+            period=period,
         )
 
     def get_class_weights(self, true_labels):
@@ -71,7 +86,7 @@ class InvoiceNetInterface:
         )
         return dict(enumerate(class_weights))
 
-    def train(self):
+    def train(self, callback_period=5):
         print("\nInitializing training...")
         self._create_needed_dirs()
         validation_data = (
@@ -85,15 +100,11 @@ class InvoiceNetInterface:
             verbose=True,
             epochs=self.config.num_epochs,
             callbacks=[
-                ValPredictionsCallback(validation_data=validation_data),
-                F1ScoreCallback(validation_data=validation_data),
-                self.tensorboard_callback,
-                self.modelcheckpoints_callback,
-                ConfusionMatrixCallback(
-                    validation_data=validation_data,
-                    period=5,
-                    human_readable_label=self.data_handler.human_readable_labels,
+                *self.metrics_callbacks(
+                    validation_data=validation_data, period=callback_period
                 ),
+                self.tensorboard_callback(period=callback_period),
+                self.modelcheckpoints_callback(period=callback_period),
             ],
             validation_data=(validation_data),
             shuffle=self.config.shuffle,

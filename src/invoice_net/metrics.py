@@ -1,4 +1,5 @@
 """Custom metrics/callbacks for invoice_net."""
+import functools
 from typing import Dict
 
 import numpy as np
@@ -42,49 +43,45 @@ def labeled_confusion_matrix(
     return matrix
 
 
-class ValPredictionsCallback(Callback):
-    def __init__(self, validation_data, **kwds):
-        super().__init__(**kwds)
-        self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
-
-    def on_epoch_end(self, epoch, logs):
-        predictions = self.model.predict(self.validation_features)
-        predicted_labels = convert_to_labels(predictions)
-        logs["predictions"] = predictions
-        logs["predicted_labels"] = predicted_labels
-
-
-class F1ScoreCallback(Callback):
-    def __init__(self, validation_data, **kwds):
-        super().__init__(**kwds)
-        self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
-
-    def on_epoch_end(self, epoch, logs):
-        macrof1 = f1_score(
-            logs["predicted_labels"], self.validation_labels, average="macro"
-        )
-        print(f" - val_macro_f1: {macrof1}")
-        logs["val_macro_f1"] = macrof1
-
-
-class ConfusionMatrixCallback(Callback):
-    def __init__(
-        self, validation_data, period=1, human_readable_labels=None, **kwds
-    ):
+class BaseCallback(Callback):
+    def __init__(self, validation_data, period=1, **kwds):
         super().__init__(**kwds)
         self.validation_features = validation_data[0]
         self.validation_labels = validation_data[1]
         self.period = period
+
+
+class ValPredictionsCallback(BaseCallback):
+    def on_epoch_end(self, epoch, logs):
+        if self.period and (epoch + 1) % self.period == 0:
+            predictions = self.model.predict(self.validation_features)
+            predicted_labels = convert_to_labels(predictions)
+            logs["predictions"] = predictions
+            logs["predicted_labels"] = predicted_labels
+
+
+class F1ScoreCallback(BaseCallback):
+    def on_epoch_end(self, epoch, logs):
+        if self.period and (epoch + 1) % self.period == 0:
+            macrof1 = f1_score(
+                logs["predicted_labels"],
+                self.validation_labels,
+                average="macro",
+            )
+            print(f" - val_macro_f1: {macrof1}")
+            logs["val_macro_f1"] = macrof1
+
+
+class ConfusionMatrixCallback(BaseCallback):
+    def __init__(self, *args, human_readable_labels=None, **kwds):
+        super().__init__(*args, **kwds)
         self.human_readable_labels = human_readable_labels
 
     def on_epoch_end(self, epoch, logs):
-        if not (epoch and epoch % self.period == 0):
-            return
-        matrix = labeled_confusion_matrix(
-            self.validation_labels,
-            logs["predicted_labels"],
-            self.human_readable_labels,
-        )
-        print(f"\nConfusion matrix for validation data:\n{matrix}")
+        if self.period and (epoch + 1) % self.period == 0:
+            matrix = labeled_confusion_matrix(
+                self.validation_labels,
+                logs["predicted_labels"],
+                self.human_readable_labels,
+            )
+            print(f"\nConfusion matrix for validation data:\n{matrix}")
