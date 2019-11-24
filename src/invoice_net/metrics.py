@@ -1,5 +1,4 @@
 """Custom metrics/callbacks for invoice_net."""
-import functools
 from typing import Dict
 
 import numpy as np
