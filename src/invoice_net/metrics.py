@@ -39,6 +39,15 @@ def labeled_confusion_matrix(
             f"true_{human_readable_labels[i]}" for i in range(matrix.shape[0])
         ],
     )
+
+    diagonal = np.diag(matrix)
+    recall = diagonal / matrix.apply(lambda x: x.sum(), axis="columns")
+    precision = diagonal / matrix.apply(lambda x: x.sum())
+
+    row = pd.Series(data=precision, index=matrix.columns, name="precision")
+    matrix = matrix.append(row)
+    matrix["recall"] = np.append(recall, 1.0)
+
     return matrix
 
 
