@@ -99,7 +99,7 @@ def _parses_as_number(text):
         + r")"
     )
     try:
-        return re.search(amount_pattern, text)[0]
+        return bool(re.search(amount_pattern, text)[0])
     except TypeError:  # no matches
         return None
 
