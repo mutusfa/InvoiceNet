@@ -330,6 +330,7 @@ def extract_features(dataframe, nonzero_labels_required=0):
     # file and calculates 17 features for each N-gram.
     with tqdm(total=len(files)) as progress_bar:
         for filename, file_info in files.items():
+            progress_bar.update(1)
             if "labels" not in file_info["rows"]:
                 LOG.warning(
                     "File %s is unlabeled. Continuing to extract features.",
@@ -349,7 +350,6 @@ def extract_features(dataframe, nonzero_labels_required=0):
                     grams.append(_fill_gram_features(ngram, file_info, line))
             _find_closest_grams(grams, start=old_num_grams)
             num_processed += 1
-            progress_bar.update(1)
 
     LOG.info(
         "Skipped %d out of %d files", len(files) - num_processed, len(files)
