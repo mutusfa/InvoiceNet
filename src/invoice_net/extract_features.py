@@ -38,8 +38,9 @@ parses_as_date:         Whether the N-gram parses as a date
 parses_as_number:       Whether the N-gram parses as a fractional amount
 """
 
-import argparse
 import copy
+import collections
+from itertools import chain
 import logging
 import re
 import sys
@@ -200,7 +201,7 @@ def _group_by_file(df):
 def _find_ngram_labels(ngram, line):
     left_index = line.words.index(ngram[0])
     right_index = line.words.index(ngram[-1], left_index)
-    labels = line.labels.split()[left_index : right_index + 1]
+    labels = line.labels.strip().split()[left_index : right_index + 1]
     return [LABEL_DICT[int(l)] for l in labels]
 
 
@@ -304,12 +305,18 @@ def ngrammer(tokens, length=4):
             yield gram
 
 
-def extract_features(dataframe):
+def num_nonzero_labels(row_df: pd.DataFrame) -> int:
+    """Answer the question: how many non-0 labels are here?"""
+    labels_it = chain.from_iterable(row_df.labels)
+    labels_count = collections.Counter(labels_it)
+    labels_count.pop(" ", None)
+    labels_count.pop("0", None)
+    return sum(labels_count.values())
+
+
+def extract_features(dataframe, nonzero_labels_required=0):
     """
     Create n-grams and extract features.
-
-    :param path: path to pickled dataframe
-    :return: dataframe containing n-grams and corresponding features
     """
     LOG.info("\nExtracting features...\n")
     # Avoid overwriting the original
@@ -318,6 +325,7 @@ def extract_features(dataframe):
     del dataframe
 
     grams = []
+    num_processed = 0
     # Calculates N-grams of lengths ranging from 1-4 for each line in each
     # file and calculates 17 features for each N-gram.
     with tqdm(total=len(files)) as progress_bar:
@@ -327,31 +335,23 @@ def extract_features(dataframe):
                     "File %s is unlabeled. Continuing to extract features.",
                     filename,
                 )
+            if nonzero_labels_required:
+                if "labels" not in file_info["rows"]:
+                    continue
+                if (
+                    num_nonzero_labels(file_info["rows"])
+                    < nonzero_labels_required
+                ):
+                    continue
             old_num_grams = len(grams)
             for _line_num, line in file_info["rows"].iterrows():
                 for ngram in ngrammer(line.words):
                     grams.append(_fill_gram_features(ngram, file_info, line))
             _find_closest_grams(grams, start=old_num_grams)
+            num_processed += 1
             progress_bar.update(1)
 
+    LOG.info(
+        "Skipped %d out of %d files", len(files) - num_processed, len(files)
+    )
     return pd.DataFrame(data=grams)
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--data", default="data/dftrain.pk", help="path to training data"
-    )
-    ap.add_argument(
-        "--save_as",
-        default="data/features.pk",
-        help="save extracted features with this name",
-    )
-    args = ap.parse_args()
-    features = extract_features(args.data)
-    features.to_pickle(args.save_as, protocol=3)
-    LOG.info("\nSaved features as {}".format(args.save_as))
-
-
-if __name__ == "__main__":
-    main()
