@@ -2,6 +2,7 @@
 
 import fasttext
 import numpy as np
+import pandas as pd
 
 
 def lazy_property(fn):
@@ -94,6 +95,28 @@ class DataHandler:
                 self.fasttext.get_sentence_vector(s)
                 for s in self.data.processed_text
             ]
+        )
+
+        closest_ngrams = pd.DataFrame(
+            self.data.closest_ngrams.values.tolist(),
+            columns=["left", "top", "right", "bottom"],
+            index=self.data.index
+        )
+
+        def get_df_by_indices(column):
+            idx = closest_ngrams[closest_ngrams[column] != -1][column]
+            df = closest_ngrams.iloc[idx, :]
+            df.set_index(idx.index, inplace=True)
+            df.columns = [f"{column}_{c}" for c in df.columns]
+            return df
+
+        left_df = get_df_by_indices("left")
+        top_df = get_df_by_indices("top")
+        right_df = get_df_by_indices("right")
+        bottom_df = get_df_by_indices("bottom")
+
+        df = pd.concat(
+            [self.data, left_df, top_df, right_df, bottom_df], axis=1
         )
 
         features = {}
