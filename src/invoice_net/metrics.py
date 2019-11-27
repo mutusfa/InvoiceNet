@@ -7,14 +7,15 @@ from sklearn.metrics import confusion_matrix, f1_score
 from tensorflow.keras.callbacks import Callback
 
 
-def convert_to_labels(
-    predictions: np.ndarray, threshold: float = 0.7
+def convert_to_classes(
+    predictions: np.ndarray, num_classes, threshold: float = 0.5
 ) -> np.ndarray:
     """Convert one-hot encoded predictions to labels.
 
     Assumes label 0 is for uncategorized and assigns 0 for any predictions
     that did not meet the threshold.
     """
+    predictions = predictions.reshape(predictions.shape[0], -1, num_classes)
     predicted_labels = np.argmax(predictions, axis=-1)
     mask = np.max(predictions, axis=-1) >= threshold
     return predicted_labels * mask
@@ -25,6 +26,11 @@ def labeled_confusion_matrix(
     y_pred: np.ndarray,
     human_readable_labels: Dict[int, str] = None,
 ) -> pd.DataFrame:
+    assert (
+        y_true.shape == y_pred.shape
+    ), "Target and predictions shapes do not match"
+    y_true = y_true.reshape(-1)
+    y_pred = y_pred.reshape(-1)
     matrix = confusion_matrix(y_true, y_pred)
     human_readable_labels = human_readable_labels or {
         i: str(i) for i in range(matrix.shape[0])
@@ -52,10 +58,13 @@ def labeled_confusion_matrix(
 
 
 class BaseCallback(Callback):
-    def __init__(self, validation_data, period=1, **kwds):
+    def __init__(self, validation_data, num_classes, period=1, **kwds):
         super().__init__(**kwds)
         self.validation_features = validation_data[0]
-        self.validation_labels = validation_data[1]
+        self.validation_labels = convert_to_classes(
+            validation_data[1], num_classes
+        )
+        self.num_classes = num_classes
         self.period = period
 
 
@@ -63,19 +72,17 @@ class ValPredictionsCallback(BaseCallback):
     def on_epoch_end(self, epoch, logs):
         if self.period and (epoch + 1) % self.period == 0:
             predictions = self.model.predict(self.validation_features)
-            predicted_labels = convert_to_labels(predictions)
-            logs["predictions"] = predictions
+            predicted_labels = convert_to_classes(predictions, self.num_classes)
             logs["predicted_labels"] = predicted_labels
 
 
 class F1ScoreCallback(BaseCallback):
     def on_epoch_end(self, epoch, logs):
         if self.period and (epoch + 1) % self.period == 0:
-            macrof1 = f1_score(
-                logs["predicted_labels"],
-                self.validation_labels,
-                average="macro",
-            )
+            y_true = self.validation_labels.reshape(-1)
+            y_pred = logs["predicted_labels"].reshape(-1)
+
+            macrof1 = f1_score(y_true, y_pred, average="macro")
             print(f" - val_macro_f1: {macrof1}")
             logs["val_macro_f1"] = macrof1
 
@@ -92,4 +99,12 @@ class ConfusionMatrixCallback(BaseCallback):
                 logs["predicted_labels"],
                 self.human_readable_labels,
             )
-            print(f"\nConfusion matrix for validation data:\n{matrix}")
+            with pd.option_context(
+                "display.width",
+                0,
+                "display.max_columns",
+                None,
+                "display.max_rows",
+                None,
+            ):
+                print(f"\nConfusion matrix for validation data:\n{matrix}")

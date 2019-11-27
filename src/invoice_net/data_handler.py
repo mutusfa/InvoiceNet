@@ -3,6 +3,8 @@
 import fasttext
 import numpy as np
 import pandas as pd
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.utils import to_categorical
 
 
 def lazy_property(fn):
@@ -115,11 +117,9 @@ class DataHandler:
     def __init__(self, data=None, validation_split=0.125, test_split=0.1):
         print("Initializing data handler")
         self.data = data
-        self.word2idx = {}
         self.embed_size = None
         self.fasttext = None
-        self.label_dict = {0: 0, 1: 1, 2: 2, 8: 3, 14: 4, 18: 5}
-        self.num_classes = len(self.label_dict)
+        self.num_classes = len(self.human_readable_labels)
         self.validation_split = validation_split
         self.test_split = test_split
         self.train_data = {}
@@ -177,14 +177,18 @@ class DataHandler:
         )
 
         try:
-            labels = self.data.apply(
-                lambda x: max(*x.labels, 0), axis="columns"
-            ).values
+            labels = pad_sequences(
+                self.data.labels,
+                maxlen=self.max_ngram_size,
+                padding="post",
+                truncating="post",
+            )
         except AttributeError:
             print("Found no labels; continuing to work without labels")
             self.train_data["labels"] = None
             self.validation_data["labels"] = None
         else:
+            labels = to_categorical(labels, num_classes=self.num_classes)
             (
                 self.train_data["labels"],
                 self.validation_data["labels"],
@@ -195,6 +199,15 @@ class DataHandler:
                 self.validation_split,
                 self.test_split,
             )
+            self.train_data["labels"] = self.train_data["labels"].reshape(
+                -1, self.num_classes * self.max_ngram_size
+            )
+            self.validation_data["labels"] = self.validation_data[
+                "labels"
+            ].reshape(-1, self.num_classes * self.max_ngram_size)
+            self.test_data["labels"] = self.test_data["labels"].reshape(
+                -1, self.num_classes * self.max_ngram_size
+            )
 
     def _features(self, data_dict):
         """Return features for nn use."""
@@ -203,6 +216,12 @@ class DataHandler:
         for key in ("labels", *self.debugging_features):
             features.pop(key, None)
         return features
+
+    @lazy_property
+    def max_ngram_size(self):
+        return max(
+            (len(l.strip().split()) for l in self.data.processed_text.head(100))
+        )
 
     @property
     def features(self):
