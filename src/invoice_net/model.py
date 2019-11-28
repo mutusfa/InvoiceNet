@@ -115,26 +115,43 @@ class InvoiceNetInterface:
         )
         self.model.save_weights(os.path.join(self.config.model_path))
 
-    def evaluate(self):
+    def evaluate(self, skip_correctly_uncategorized=True):
         predictions = self.model.predict(self.data_handler.test_features)
         predicted_labels = convert_to_classes(
-            predictions, num_classe=self.data_handler.num_classes
+            predictions, num_classes=self.data_handler.num_classes
+        )
+        test_labels = convert_to_classes(
+            self.data_handler.test_labels,
+            num_classes=self.data_handler.num_classes,
+        )
+        if skip_correctly_uncategorized:
+            correct_predictions_mask = (test_labels == predicted_labels).all(
+                axis=-1
+            )
+            only_uncategorized_mask = ~test_labels.any(axis=-1)
+            correctly_uncategorized_mask = np.logical_and(
+                correct_predictions_mask, only_uncategorized_mask
+            )
+            predicted_labels = predicted_labels[~correctly_uncategorized_mask]
+            test_labels = test_labels[~correctly_uncategorized_mask]
+
+        true_df = pd.DataFrame(
+            self.data_handler.to_human_readable_classes(test_labels)
+        )
+        pred_df = pd.DataFrame(
+            self.data_handler.to_human_readable_classes(predicted_labels)
         )
         raw_text_comparison_df = pd.DataFrame(
             {
                 "raw_text": self.data_handler.test_data["raw_text"],
-                "true": [
-                    self.data_handler.human_readable_labels[i]
-                    for i in self.data_handler.test_labels
-                ],
-                "pred": [
-                    self.data_handler.human_readable_labels[i]
-                    for i in predicted_labels
-                ],
+                "processed_text": self.data_handler.test_data["processed_text"],
             }
         )
+        raw_text_comparison_df = raw_text_comparison_df.merge(
+            true_df, left_index=True, right_index=True
+        ).merge(pred_df, left_index=True, right_index=True)
         matrix = labeled_confusion_matrix(
-            self.data_handler.test_labels,
+            test_labels,
             predicted_labels,
             self.data_handler.human_readable_labels,
         )
