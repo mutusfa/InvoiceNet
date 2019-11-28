@@ -55,7 +55,24 @@ class DataHandler:
         "top_margin",
         "left_margin",
         "right_margin",
+        "left_bottom_margin",
+        "left_top_margin",
+        "left_left_margin",
+        "left_right_margin",
+        "top_bottom_margin",
+        "top_top_margin",
+        "top_left_margin",
+        "top_right_margin",
+        "right_bottom_margin",
+        "right_top_margin",
+        "right_left_margin",
+        "right_right_margin",
+        "bottom_bottom_margin",
+        "bottom_top_margin",
+        "bottom_left_margin",
+        "bottom_right_margin",
     ]
+    debugging_features = ["raw_text", "processed_text"]
     auxillary_features = [
         "length",
         "line_size",
@@ -63,8 +80,31 @@ class DataHandler:
         "has_digits",
         "parses_as_date",
         "parses_as_number",
+        "left_length",
+        "left_line_size",
+        "left_position_on_line",
+        "left_has_digits",
+        "left_parses_as_date",
+        "left_parses_as_number",
+        "top_length",
+        "top_line_size",
+        "top_position_on_line",
+        "top_has_digits",
+        "top_parses_as_date",
+        "top_parses_as_number",
+        "right_length",
+        "right_line_size",
+        "right_position_on_line",
+        "right_has_digits",
+        "right_parses_as_date",
+        "right_parses_as_number",
+        "bottom_length",
+        "bottom_line_size",
+        "bottom_position_on_line",
+        "bottom_has_digits",
+        "bottom_parses_as_date",
+        "bottom_parses_as_number",
     ]
-    debugging_features = ["raw_text", "processed_text"]
     human_readable_labels = {
         0: "unclassified",
         1: "invoice_date",
@@ -121,14 +161,14 @@ class DataHandler:
 
         features = {}
         features["sentences_embeddings"] = sentences_embeddings
-        features["coordinates"] = self.data.loc[
+        features["coordinates"] = df.loc[
             :, self.coordinates_features
         ].values
-        features["aux_features"] = self.data.loc[
+        features["aux_features"] = df.loc[
             :, self.auxillary_features
         ].values.astype(float)
         for key in self.debugging_features:
-            features[key] = self.data.loc[:, key].values
+            features[key] = df.loc[:, key].values
         self.train_data, self.validation_data, self.test_data = split_data(
             features,
             1 - self.validation_split - self.test_split,
