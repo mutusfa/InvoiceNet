@@ -64,17 +64,17 @@ class InvoiceNetInterface:
         ]
 
     def modelcheckpoints_callback(self, period=5):
-        filename_format = ".{epoch:02d}-{val_loss:.2f}.hdf5"
+        filename_format = ".{epoch:02d}-{val_loss:.2f}-{val_macro_f1}.hdf5"
         return ModelCheckpoint(
             os.path.join(
                 self.config.checkpoint_dir,
                 self.__class__.__name__ + filename_format,
             ),
-            monitor="val_loss",
+            monitor="val_macro_f1",
             verbose=0,
             save_best_only=True,
             save_weights_only=True,
-            mode="auto",
+            mode="min",
             period=period,
         )
 
