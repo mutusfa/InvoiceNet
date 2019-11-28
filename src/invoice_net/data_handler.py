@@ -145,7 +145,7 @@ class DataHandler:
 
         def get_df_by_indices(column):
             idx = closest_ngrams[closest_ngrams[column] != -1][column]
-            df = closest_ngrams.iloc[idx, :]
+            df = self.data.iloc[idx, :]
             df.set_index(idx.index, inplace=True)
             df.columns = [f"{column}_{c}" for c in df.columns]
             return df
