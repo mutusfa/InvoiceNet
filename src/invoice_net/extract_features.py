@@ -307,7 +307,7 @@ def ngrammer(tokens, length=4):
 
 def num_nonzero_labels(row_df: pd.DataFrame) -> int:
     """Answer the question: how many non-0 labels are here?"""
-    labels_it = chain.from_iterable(row_df.labels)
+    labels_it = chain.from_iterable(row_df.labels.str.strip().str.split())
     labels_count = collections.Counter(labels_it)
     labels_count.pop(" ", None)
     labels_count.pop("0", None)
