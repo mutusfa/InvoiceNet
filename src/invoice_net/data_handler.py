@@ -224,6 +224,13 @@ class DataHandler:
                 -1, self.num_classes * self.max_ngram_size
             )
 
+    def to_human_readable_classes(
+        self, predicted_classes: np.array
+    ) -> np.array:
+        return np.vectorize(self.human_readable_labels.__getitem__)(
+            predicted_classes
+        )
+
     def _features(self, data_dict):
         """Return features for nn use."""
         # only keys are copied so this is cheap
