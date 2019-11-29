@@ -269,10 +269,10 @@ def _find_closest_grams(grams, start=0):
             ) = _calculate_distance_between_grams(outer_gram, inner_gram)
             # If in the same line, check for closest ngram to left and right
             if above == below:
-                if distance["left"] > left > 0:
+                if distance["left"] >= left >= 0:
                     distance["left"] = left
                     outer_gram["closest_ngrams"][0] = inner_gram_id
-                if distance["right"] > right > 0:
+                if distance["right"] >= right >= 0:
                     distance["right"] = right
                     outer_gram["closest_ngrams"][2] = inner_gram_id
             # If inner ngram is above outer gram
