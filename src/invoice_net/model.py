@@ -200,8 +200,38 @@ class InvoiceNet(InvoiceNetInterface):
             dtype="float32",
             name="sentences_embeddings",
         )
-        embeddings = Flatten()(sentences_embeddings)
-        output = concatenate([embeddings, coordinates, aux_features])
+        left_sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="left_sentences_embeddings",
+        )
+        top_sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="top_sentences_embeddings",
+        )
+        right_sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="right_sentences_embeddings",
+        )
+        bottom_sentences_embeddings = Input(
+            shape=(self.data_handler.embed_size),
+            dtype="float32",
+            name="bottom_sentences_embeddings",
+        )
+
+        output = concatenate(
+            [
+                Flatten()(sentences_embeddings),
+                Flatten()(left_sentences_embeddings),
+                Flatten()(top_sentences_embeddings),
+                Flatten()(right_sentences_embeddings),
+                Flatten()(bottom_sentences_embeddings),
+                coordinates,
+                aux_features,
+            ]
+        )
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dropout(0.5)(output)
@@ -212,7 +242,15 @@ class InvoiceNet(InvoiceNetInterface):
         )(output)
 
         return Model(
-            inputs=[sentences_embeddings, coordinates, aux_features],
+            inputs=[
+                sentences_embeddings,
+                left_sentences_embeddings,
+                top_sentences_embeddings,
+                right_sentences_embeddings,
+                bottom_sentences_embeddings,
+                coordinates,
+                aux_features,
+            ],
             outputs=[output],
         )
 

@@ -128,23 +128,22 @@ class DataHandler:
 
     def prepare_data(self):
         """Prepare data for training."""
-        print("Preparing data")
 
-        sentences_embeddings = np.array(
-            [
-                self.fasttext.get_sentence_vector(s)
-                for s in self.data.processed_text
-            ]
-        )
+        def get_sentences_embeddings(text):
+            return np.array(
+                [self.fasttext.get_sentence_vector(s) for s in text.fillna("")]
+            )
+
+        print("Preparing data")
 
         closest_ngrams = pd.DataFrame(
             self.data.closest_ngrams.values.tolist(),
             columns=["left", "top", "right", "bottom"],
-            index=self.data.index
+            index=self.data.index,
         )
 
         def get_df_by_indices(column):
-            idx = closest_ngrams[closest_ngrams[column] != -1][column]
+            idx = closest_ngrams[closest_ngrams[column].isna()][column]
             df = self.data.iloc[idx, :]
             df.set_index(idx.index, inplace=True)
             df.columns = [f"{column}_{c}" for c in df.columns]
@@ -160,13 +159,29 @@ class DataHandler:
         )
 
         features = {}
-        features["sentences_embeddings"] = sentences_embeddings
-        features["coordinates"] = df.loc[
-            :, self.coordinates_features
-        ].values
-        features["aux_features"] = df.loc[
-            :, self.auxillary_features
-        ].values.astype(float)
+        features["sentences_embeddings"] = get_sentences_embeddings(
+            df.processed_text
+        )
+        features["left_sentences_embeddings"] = get_sentences_embeddings(
+            df.left_processed_text
+        )
+        features["top_sentences_embeddings"] = get_sentences_embeddings(
+            df.top_processed_text
+        )
+        features["right_sentences_embeddings"] = get_sentences_embeddings(
+            df.right_processed_text
+        )
+        features["bottom_sentences_embeddings"] = get_sentences_embeddings(
+            df.bottom_processed_text
+        )
+        features["coordinates"] = (
+            df.loc[:, self.coordinates_features].fillna(value=-1).values
+        )
+        features["aux_features"] = (
+            df.loc[:, self.auxillary_features]
+            .fillna(value=0)
+            .values.astype(float)
+        )
         for key in self.debugging_features:
             features[key] = df.loc[:, key].values
         self.train_data, self.validation_data, self.test_data = split_data(

@@ -68,7 +68,7 @@ EMPTY_SINGLE_GRAM = {
     "parses_as_date": False,
     "parses_as_number": False,
     "labels": [],
-    "closest_ngrams": [-1, -1, -1, -1],  # left, top, right, bottom
+    "closest_ngrams": [None, None, None, None],  # left, top, right, bottom
 }
 
 
