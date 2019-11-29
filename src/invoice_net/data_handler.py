@@ -134,6 +134,13 @@ class DataHandler:
                 [self.fasttext.get_sentence_vector(s) for s in text.fillna("")]
             )
 
+        def get_df_by_indices(column):
+            idx = closest_ngrams[closest_ngrams[column].isna()][column]
+            df = self.data.iloc[idx, :]
+            df.set_index(idx.index, inplace=True)
+            df.columns = [f"{column}_{c}" for c in df.columns]
+            return df
+
         print("Preparing data")
 
         closest_ngrams = pd.DataFrame(
@@ -141,13 +148,6 @@ class DataHandler:
             columns=["left", "top", "right", "bottom"],
             index=self.data.index,
         )
-
-        def get_df_by_indices(column):
-            idx = closest_ngrams[closest_ngrams[column].isna()][column]
-            df = self.data.iloc[idx, :]
-            df.set_index(idx.index, inplace=True)
-            df.columns = [f"{column}_{c}" for c in df.columns]
-            return df
 
         left_df = get_df_by_indices("left")
         top_df = get_df_by_indices("top")
