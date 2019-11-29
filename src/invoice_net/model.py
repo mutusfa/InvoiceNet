@@ -124,16 +124,6 @@ class InvoiceNetInterface:
             self.data_handler.test_labels,
             num_classes=self.data_handler.num_classes,
         )
-        if skip_correctly_uncategorized:
-            correct_predictions_mask = (test_labels == predicted_labels).all(
-                axis=-1
-            )
-            only_uncategorized_mask = ~test_labels.any(axis=-1)
-            correctly_uncategorized_mask = np.logical_and(
-                correct_predictions_mask, only_uncategorized_mask
-            )
-            predicted_labels = predicted_labels[~correctly_uncategorized_mask]
-            test_labels = test_labels[~correctly_uncategorized_mask]
 
         true_df = pd.DataFrame(
             self.data_handler.to_human_readable_classes(test_labels)
@@ -150,6 +140,19 @@ class InvoiceNetInterface:
         raw_text_comparison_df = raw_text_comparison_df.merge(
             true_df, left_index=True, right_index=True
         ).merge(pred_df, left_index=True, right_index=True)
+
+        if skip_correctly_uncategorized:
+            correct_predictions_mask = (test_labels == predicted_labels).all(
+                axis=-1
+            )
+            only_uncategorized_mask = ~test_labels.any(axis=-1)
+            correctly_uncategorized_mask = np.logical_and(
+                correct_predictions_mask, only_uncategorized_mask
+            )
+            raw_text_comparison_df = raw_text_comparison_df[
+                ~correctly_uncategorized_mask
+            ]
+
         matrix = labeled_confusion_matrix(
             test_labels,
             predicted_labels,
