@@ -305,15 +305,15 @@ def ngrammer(tokens, length=4):
             yield gram
 
 
-def num_nonzero_labels(row_df: pd.DataFrame) -> int:
-    """Answer the question: how many non-0 labels are here?"""
+def num_labels(row_df: pd.DataFrame) -> int:
+    """Answer the question: how many different labels are here?"""
     labels_it = chain.from_iterable(row_df.labels.str.strip().str.split())
     labels_count = collections.Counter(labels_it)
     labels_count.pop("0", None)
-    return sum(labels_count.values())
+    return len(labels_count.keys())
 
 
-def extract_features(dataframe, nonzero_labels_required=0):
+def extract_features(dataframe, num_labels_required=0):
     """
     Create n-grams and extract features.
     """
@@ -335,13 +335,10 @@ def extract_features(dataframe, nonzero_labels_required=0):
                     "File %s is unlabeled. Continuing to extract features.",
                     filename,
                 )
-            if nonzero_labels_required:
+            if num_labels_required:
                 if "labels" not in file_info["rows"]:
                     continue
-                if (
-                    num_nonzero_labels(file_info["rows"])
-                    < nonzero_labels_required
-                ):
+                if num_labels(file_info["rows"]) < num_labels_required:
                     continue
             old_num_grams = len(grams)
             for _line_num, line in file_info["rows"].iterrows():
