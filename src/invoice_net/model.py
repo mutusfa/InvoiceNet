@@ -30,8 +30,11 @@ from invoice_net.metrics import (
 def weighted_binary_crossentropy(class_weights,):
     weights = ops.convert_to_tensor(class_weights, dtype="float32")
 
-    def bce(*args, weights=weights, **kwds):
-        orig_bce = K.binary_crossentropy(*args, **kwds)
+    def bce(y_true, *args, weights=weights, **kwds):
+        positive_weights = y_true * weights
+        negative_weights = 1 - y_true
+        weights = positive_weights + negative_weights
+        orig_bce = K.binary_crossentropy(y_true, *args, **kwds)
         return K.mean(orig_bce * weights)
 
     return bce
