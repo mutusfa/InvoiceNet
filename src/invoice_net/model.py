@@ -198,6 +198,14 @@ class InvoiceNet(InvoiceNetInterface):
             dtype="float32",
             name="aux_features",
         )
+        words_embeddings = Input(
+            shape=(
+                self.data_handler.max_ngram_size,
+                self.data_handler.embed_size
+            ),
+            dtype="float32",
+            name="words_embeddings",
+        )
         sentences_embeddings = Input(
             shape=(self.data_handler.embed_size),
             dtype="float32",
@@ -226,6 +234,7 @@ class InvoiceNet(InvoiceNetInterface):
 
         output = concatenate(
             [
+                Flatten()(words_embeddings),
                 Flatten()(sentences_embeddings),
                 Flatten()(left_sentences_embeddings),
                 Flatten()(top_sentences_embeddings),
@@ -246,6 +255,7 @@ class InvoiceNet(InvoiceNetInterface):
 
         return Model(
             inputs=[
+                words_embeddings,
                 sentences_embeddings,
                 left_sentences_embeddings,
                 top_sentences_embeddings,

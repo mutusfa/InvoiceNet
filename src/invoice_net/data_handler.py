@@ -134,6 +134,21 @@ class DataHandler:
                 [self.fasttext.get_sentence_vector(s) for s in text.fillna("")]
             )
 
+        def get_words_embeddings(text):
+            return pad_sequences(
+                [
+                    [
+                        self.fasttext.get_word_vector(w)
+                        for w in line.strip().split()
+                    ]
+                    for line in text.fillna("")
+                ],
+                dtype="float32",
+                maxlen=self.max_ngram_size,
+                padding="post",
+                truncating="post",
+            )
+
         def get_df_by_indices(column):
             idx = closest_ngrams[~closest_ngrams[column].isna()][column]
             df = self.data.iloc[idx, :]
@@ -159,6 +174,7 @@ class DataHandler:
         )
 
         features = {}
+        features["words_embeddings"] = get_words_embeddings(df.processed_text)
         features["sentences_embeddings"] = get_sentences_embeddings(
             df.processed_text
         )
