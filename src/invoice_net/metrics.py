@@ -51,7 +51,7 @@ def labeled_confusion_matrix(
 
     row = pd.Series(data=precision, index=matrix.columns, name="precision")
     matrix = matrix.append(row)
-    matrix["recall"] = np.append(recall, 1.0)
+    matrix["recall"] = np.append(recall, None)
 
     return matrix
 
