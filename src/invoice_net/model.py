@@ -115,6 +115,7 @@ class InvoiceNetInterface:
         return class_weights
 
     def train(self, callback_period=10):
+        callback_period = callback_period or self.config.checkpoint_period
         print("\nInitializing training...")
         self._create_needed_dirs()
         validation_data = (

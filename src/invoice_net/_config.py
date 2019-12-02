@@ -48,6 +48,12 @@ parent_parser.add_argument(
 parent_parser.add_argument(
     "--shuffle", action="store_true", help="shuffle dataset"
 )
+parent_parser.add_argument(
+    "--callback_frequency",
+    type=int,
+    default=10,
+    help="callbacks will be called every callback_frequency epochs",
+)
 
 
 def get_data_for_nn(config):
