@@ -4,9 +4,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import concatenate, Dense, Dropout, Flatten, Input
+from tensorflow.keras.layers import (
+    concatenate,
+    Dense,
+    Dropout,
+    Flatten,
+    Input,
+    Reshape,
+)
+import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
+from tensorflow.python.framework import ops
 from sklearn.utils.class_weight import compute_class_weight
 
 from invoice_net.metrics import (
@@ -16,6 +25,16 @@ from invoice_net.metrics import (
     F1ScoreCallback,
     ValPredictionsCallback,
 )
+
+
+def weighted_binary_crossentropy(class_weights,):
+    weights = ops.convert_to_tensor(class_weights, dtype="float32")
+
+    def bce(*args, weights=weights, **kwds):
+        orig_bce = K.binary_crossentropy(*args, **kwds)
+        return K.mean(orig_bce * weights)
+
+    return bce
 
 
 class InvoiceNetInterface:
@@ -79,13 +98,21 @@ class InvoiceNetInterface:
         )
 
     def get_class_weights(self):
-        true_labels = convert_to_classes(
+        true_labels_by_word = convert_to_classes(
             self.data_handler.labels, num_classes=self.data_handler.num_classes
-        ).reshape(-1)
-        class_weights = compute_class_weight(
-            "balanced", np.unique(true_labels), true_labels
         )
-        return dict(enumerate(class_weights))
+        class_weights = []
+        for word_idx in range(true_labels_by_word.shape[1]):
+            class_weights.append(
+                compute_class_weight(
+                    "balanced",
+                    np.unique(true_labels_by_word),
+                    true_labels_by_word[:, word_idx],
+                )
+            )
+        class_weights = np.array(class_weights)
+        print(f"Using class weights:\n{class_weights}")
+        return class_weights
 
     def train(self, callback_period=10):
         print("\nInitializing training...")
@@ -111,7 +138,6 @@ class InvoiceNetInterface:
             ],
             validation_data=(validation_data),
             shuffle=self.config.shuffle,
-            class_weight=self.get_class_weights(),
         )
         self.model.save_weights(os.path.join(self.config.model_path))
 
@@ -142,6 +168,9 @@ class InvoiceNetInterface:
         ).merge(pred_df, left_index=True, right_index=True)
 
         if skip_correctly_uncategorized:
+            # all masks here work on whole prediction/text line
+            # i.e., whether all ngrams were predicted correctly
+            # and whether whole line is full of uninteresting fluff
             correct_predictions_mask = (test_labels == predicted_labels).all(
                 axis=-1
             )
@@ -177,7 +206,9 @@ class InvoiceNetInterface:
 
     def compile_model(self):
         self.model.compile(
-            loss="binary_crossentropy", optimizer="Adam", metrics=["accuracy"]
+            loss=weighted_binary_crossentropy(self.get_class_weights()),
+            optimizer="Adam",
+            metrics=["accuracy"],
         )
 
     def load_weights(self, path):
@@ -201,7 +232,7 @@ class InvoiceNet(InvoiceNetInterface):
         words_embeddings = Input(
             shape=(
                 self.data_handler.max_ngram_size,
-                self.data_handler.embed_size
+                self.data_handler.embed_size,
             ),
             dtype="float32",
             name="words_embeddings",
@@ -251,6 +282,9 @@ class InvoiceNet(InvoiceNetInterface):
         output = Dense(
             data_handler.num_classes * data_handler.max_ngram_size,
             activation="sigmoid",
+        )(output)
+        output = Reshape(
+            (data_handler.num_classes, data_handler.max_ngram_size)
         )(output)
 
         return Model(

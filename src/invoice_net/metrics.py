@@ -15,7 +15,6 @@ def convert_to_classes(
     Assumes label 0 is for uncategorized and assigns 0 for any predictions
     that did not meet the threshold.
     """
-    predictions = predictions.reshape(predictions.shape[0], -1, num_classes)
     predicted_labels = np.argmax(predictions, axis=-1)
     mask = np.max(predictions, axis=-1) >= threshold
     return predicted_labels * mask

@@ -230,15 +230,6 @@ class DataHandler:
                 self.validation_split,
                 self.test_split,
             )
-            self.train_data["labels"] = self.train_data["labels"].reshape(
-                -1, self.num_classes * self.max_ngram_size
-            )
-            self.validation_data["labels"] = self.validation_data[
-                "labels"
-            ].reshape(-1, self.num_classes * self.max_ngram_size)
-            self.test_data["labels"] = self.test_data["labels"].reshape(
-                -1, self.num_classes * self.max_ngram_size
-            )
 
     def to_human_readable_classes(
         self, predicted_classes: np.array
