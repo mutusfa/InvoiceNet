@@ -43,7 +43,7 @@ parent_parser.add_argument(
     "--num_epochs", type=int, default=20, help="number of epochs"
 )
 parent_parser.add_argument(
-    "--batch_size", type=int, default=16000, help="size of mini-batch"
+    "--batch_size", type=int, default=50000, help="size of mini-batch"
 )
 parent_parser.add_argument(
     "--shuffle", action="store_true", help="shuffle dataset"
