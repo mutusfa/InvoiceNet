@@ -25,6 +25,7 @@ def main(config=None):
     net = InvoiceNet(data_handler=data_handler, config=config)
 
     if config.mode == "train":
+        net.compile_model()
         net.train()
     else:
         net.load_weights(config.load_weights)

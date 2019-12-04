@@ -68,8 +68,6 @@ class InvoiceNetInterface:
         self.config = config
         print("Defining model graph...")
         self.model = self.create_model(data_handler, config)
-        print("Compiling model...")
-        self.compile_model()
 
     def _create_needed_dirs(self):
         if not os.path.exists(self.config.log_dir):
@@ -182,7 +180,9 @@ class InvoiceNetInterface:
         return history
 
     def evaluate(self, skip_correctly_uncategorized=True):
-        predictions = self.model.predict(self.data_handler.test_features)
+        predictions = self.model.predict(
+            self.data_handler.test_features, batch_size=self.config.batch_size
+        )
         predicted_labels = convert_to_classes(
             predictions, num_classes=self.data_handler.num_classes
         )
@@ -235,6 +235,7 @@ class InvoiceNetInterface:
         )
 
     def compile_model(self):
+        print("Compiling model...")
         self.model.compile(
             loss=weighted_binary_crossentropy(self.get_class_weights()),
             optimizer="Adam",
