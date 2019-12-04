@@ -188,16 +188,6 @@ class InvoiceNetInterface:
             predicted_labels,
             self.data_handler.human_readable_labels,
         )
-        with pd.option_context(
-            "display.max_rows",
-            None,
-            "display.max_columns",
-            None,
-            "display.width",
-            0,
-        ):
-            print(raw_text_comparison_df)
-            print(matrix)
         return raw_text_comparison_df, matrix
 
     def create_model(self, data_handler, config) -> Any:
