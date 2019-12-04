@@ -91,8 +91,8 @@ class InvoiceNetInterface:
         return OneCycleLearning(
             num_epochs=self.config.num_epochs,
             num_batches_per_epoch=num_training_iterations_per_epoch,
-            base_lr=0.03,
-            max_lr=0.3,
+            base_lr=0.001,
+            max_lr=0.01,
         )
 
     def metrics_callbacks(self, validation_data, period=5):
