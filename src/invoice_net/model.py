@@ -1,3 +1,4 @@
+import math
 import os
 from typing import Any
 
@@ -13,8 +14,9 @@ from tensorflow.keras.layers import (
     Reshape,
 )
 import tensorflow.keras.backend as K
-from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
+from keras_contrib.callbacks.cyclical_learning_rate import CyclicLR
 from tensorflow.python.framework import ops
 from sklearn.utils.class_weight import compute_class_weight
 
@@ -25,6 +27,28 @@ from invoice_net.metrics import (
     F1ScoreCallback,
     ValPredictionsCallback,
 )
+
+
+class OneCycleLearning(CyclicLR):
+    def __init__(self, num_epochs, num_batches_per_epoch, *args, **kwds):
+        total_steps = num_epochs * num_batches_per_epoch
+        self.num_trn_steps = int(math.ceil(total_steps / 2.1)) * 2
+        super().__init__(*args, step_size=self.num_trn_steps / 2, **kwds)
+        self.num_epochs = num_epochs
+        self._end_lr = self.base_lr / 100
+        self._end_step_size = (total_steps - self.num_trn_steps) * 2
+        self._converging = False
+
+    def _start_converge(self, batch, logs=None):
+        self._converging = True
+        super()._reset(new_base_lr=self._end_lr, new_max_lr=self.base_lr)
+        self.clr_iterations = self.step_size
+        self.step_size = self._end_step_size
+
+    def on_batch_end(self, batch, logs=None):
+        if not self._converging and self.trn_iterations > self.num_trn_steps:
+            self._start_converge(batch, logs=logs)
+        super().on_batch_end(batch, logs=logs)
 
 
 def weighted_binary_crossentropy(class_weights,):
@@ -62,6 +86,17 @@ class InvoiceNetInterface:
             write_images=True,
         )
 
+    def one_cycle_learning_callback(self):
+        num_training_iterations_per_epoch = math.ceil(
+            len(self.data_handler.labels) / self.config.batch_size
+        )
+        return OneCycleLearning(
+            num_epochs=self.config.num_epochs,
+            num_batches_per_epoch=num_training_iterations_per_epoch,
+            base_lr=0.03,
+            max_lr=0.3,
+        )
+
     def metrics_callbacks(self, validation_data, period=5):
         return [
             ValPredictionsCallback(
@@ -93,13 +128,14 @@ class InvoiceNetInterface:
             verbose=0,
             save_best_only=True,
             save_weights_only=True,
-            mode="min",
+            mode="max",
             period=period,
         )
 
-    def get_class_weights(self):
+    def get_class_weights(self, labels=None):
+        labels = labels or self.data_handler.labels
         true_labels_by_word = convert_to_classes(
-            self.data_handler.labels, num_classes=self.data_handler.num_classes
+            labels, num_classes=self.data_handler.num_classes
         )
         class_weights = []
         for word_idx in range(true_labels_by_word.shape[1]):
@@ -114,8 +150,9 @@ class InvoiceNetInterface:
         print(f"Using class weights:\n{class_weights}")
         return class_weights
 
-    def train(self, callback_period=10):
+    def train(self, callback_period=10, validation_freq=None):
         callback_period = callback_period or self.config.checkpoint_period
+        validation_freq = validation_freq or callback_period
         print("\nInitializing training...")
         self._create_needed_dirs()
         validation_data = (
@@ -123,7 +160,7 @@ class InvoiceNetInterface:
             self.data_handler.validation_labels,
         )
 
-        self.model.fit(
+        history = self.model.fit(
             self.data_handler.features,
             self.data_handler.labels,
             batch_size=self.config.batch_size,
@@ -133,14 +170,16 @@ class InvoiceNetInterface:
                 *self.metrics_callbacks(
                     validation_data=validation_data, period=callback_period
                 ),
+                self.one_cycle_learning_callback(),
                 self.tensorboard_callback(period=callback_period),
                 self.modelcheckpoints_callback(period=callback_period),
-                EarlyStopping(patience=50, monitor="loss"),
             ],
             validation_data=(validation_data),
+            validation_freq=validation_freq,
             shuffle=self.config.shuffle,
         )
         self.model.save_weights(os.path.join(self.config.model_path))
+        return history
 
     def evaluate(self, skip_correctly_uncategorized=True):
         predictions = self.model.predict(self.data_handler.test_features)
