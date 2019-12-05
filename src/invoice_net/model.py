@@ -4,7 +4,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from tensorflow.keras.models import Model
+from tensorflow import GradientTape, convert_to_tensor
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import (
     concatenate,
     Dense,
@@ -248,17 +249,6 @@ class InvoiceNetInterface:
             predicted_labels,
             self.data_handler.human_readable_labels,
         )
-        if print_tables:
-            with pd.option_context(
-                "display.max_rows",
-                None,
-                "display.max_columns",
-                None,
-                "display.width",
-                0,
-            ):
-                print(raw_text_comparison_df)
-                print(matrix)
         return raw_text_comparison_df, matrix
 
     def create_model(self, data_handler, config) -> Any:
@@ -278,6 +268,52 @@ class InvoiceNetInterface:
         """Load weights from the given model file."""
         self.model.load_weights(path)
         print("\nSuccessfully loaded weights from {}".format(path))
+
+    def get_saliency(self):
+        input = self.data_handler.test_features
+        concat_layer = self.model.layers[14]
+        concat_model = Model(inputs=self.model.inputs,
+                             outputs=concat_layer.output)
+        concatenated_input = concat_model.predict(input)
+
+        output_model = Sequential()
+        output_model_input = Input(concat_layer.output.shape)
+        output_model.add(output_model_input)
+        for layer in self.model.layers[15:-1]:
+            output_model.add(layer)
+
+        with GradientTape() as tape:
+            concatenated_input_tensor = convert_to_tensor(concatenated_input)
+            tape.watch(concatenated_input_tensor)
+            output = output_model(concatenated_input_tensor)
+            max_output = K.max(output, axis=1)
+        gradients = tape.gradient(max_output, concatenated_input_tensor)
+        noise_mask = (
+            self.data_handler.test_labels
+                .argmax(axis=-1)
+                .argmax(axis=-1) == 0
+        )
+        interesting_gradients = gradients[~noise_mask]
+        df = pd.DataFrame(interesting_gradients.numpy())
+        saliency = df.abs().mean()
+
+        input_names = np.concatenate([
+            np.repeat("word1_embeddings", self.data_handler.embed_size),
+            np.repeat("word2_embeddings", self.data_handler.embed_size),
+            np.repeat("word3_embeddings", self.data_handler.embed_size),
+            np.repeat("word4_embeddings", self.data_handler.embed_size),
+            np.repeat("sentence_embeddings", self.data_handler.embed_size),
+            np.repeat("left_sentence_embeddings", self.data_handler.embed_size),
+            np.repeat("top_sentence_embeddings", self.data_handler.embed_size),
+            np.repeat("right_sentence_embeddings",
+                      self.data_handler.embed_size),
+            np.repeat("bottom_sentence_embeddings",
+                      self.data_handler.embed_size),
+            self.data_handler.coordinates_features,
+            self.data_handler.auxillary_features,
+        ])
+
+        return pd.DataFrame({"saliency": saliency, "input_name": input_names})
 
 
 class InvoiceNet(InvoiceNetInterface):
