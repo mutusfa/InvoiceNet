@@ -68,6 +68,7 @@ EMPTY_SINGLE_GRAM = {
     "parses_as_date": False,
     "parses_as_number": False,
     "labels": [],
+    "file_name": "",
     "closest_ngrams": [None, None, None, None],  # left, top, right, bottom
 }
 
@@ -104,6 +105,12 @@ def _parses_as_number(text):
         return None
 
 
+def _parses_as_serial_number(text):
+    has_numbers = re.search(r"\d", text)
+    has_letters = re.search(r"[a-zA-Z]", text)
+    return has_numbers and has_letters and text.isalnum()
+
+
 def _process_text(ngram):
     """Returns proccessed text and what does it parse as."""
     # TODO check if preserving titles changes anything
@@ -123,6 +130,8 @@ def _process_text(ngram):
             processed_text.append("date")
         elif word_is_number:
             processed_text.append("number")
+        elif _parses_as_serial_number(word):
+            processed_text.append("serial_number")
         else:
             alphanum_only = "".join(filter(str.isalnum, word))
             if alphanum_only:
@@ -135,7 +144,7 @@ def _process_text(ngram):
 
 
 def _text_pattern(raw_text):
-    text = re.sub("\s+", " ", raw_text)
+    text = re.sub(r"\s+", " ", raw_text)
     text_pattern = ["?"] * len(text)
     for i, char in enumerate(text):
         if char.isnumeric():
@@ -146,7 +155,7 @@ def _text_pattern(raw_text):
             text_pattern[i] = "x"
         elif char.isupper():  # works for unicode chars too
             text_pattern[i] = "X"
-        # non-letter, non-number, npn-whitespace left as ?
+        # non-letter, non-number, non-whitespace left as ?
     return "".join(text_pattern)
 
 
@@ -167,6 +176,7 @@ def _group_by_file(df):
         files = {"untitled": {"rows": df}}
     for filename, file_info in files.items():
         # Assuming all pages of invoice have the same width/height
+        files[filename]["file_name"] = filename
         files[filename]["xmin"] = min(xmin for xmin in file_info["rows"].x1)
         files[filename]["xmax"] = max(xmax for xmax in file_info["rows"].x2)
         files[filename]["width"] = (
@@ -239,6 +249,7 @@ def _fill_gram_features(ngram, file_info, line):
     ) / file_info["height"]
     if "labels" in line:
         gram["labels"] = _find_ngram_labels(ngram, line)
+    gram["file_name"] = file_info["file_name"]
     return gram
 
 
@@ -309,7 +320,6 @@ def num_labels(row_df: pd.DataFrame) -> int:
     """Answer the question: how many different labels are here?"""
     labels_it = chain.from_iterable(row_df.labels.str.strip().str.split())
     labels_count = collections.Counter(labels_it)
-    labels_count.pop("0", None)
     return len(labels_count.keys())
 
 
