@@ -16,7 +16,7 @@ from tensorflow.keras.layers import (
 import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import TensorBoard
 from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
-from keras_contrib.callbacks.cyclical_learning_rate import CyclicLR
+from invoice_net.callbacks.cyclical_learning_rate import CyclicLR
 from tensorflow.python.framework import ops
 from sklearn.utils.class_weight import compute_class_weight
 

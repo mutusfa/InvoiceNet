@@ -29,6 +29,5 @@ setuptools.setup(
         "tensorflow",
         "tqdm",
         "fasttext @ https://github.com/facebookresearch/fastText/tarball/master#egg=fasttext-0.9.1",
-        "keras-contrib @ https://github.com/keras-team/keras-contrib/tarball/master#egg=keras-contrib!",
     ],
 )
