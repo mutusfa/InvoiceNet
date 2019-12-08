@@ -7,6 +7,21 @@ from sklearn.metrics import confusion_matrix, f1_score
 from tensorflow.keras.callbacks import Callback
 
 
+def false_positives_false_negatives(y_true, y_pred):
+    y_pred = y_pred > 0.5
+    mistakes = y_true != y_pred
+
+    y_true_any = y_true.argmax(axis=-1).astype(bool)
+    y_pred_any = (y_pred > 0.5).argmax(axis=-1).astype(bool)
+    mistakes_any = mistakes.any(axis=-1).astype(bool)
+    false_positives = mistakes_any & y_pred_any & ~y_true_any
+    false_negatives = mistakes_any & ~y_pred_any & y_true_any
+    other_mistakes = (
+        mistakes.any(axis=-1).astype(bool) & ~false_positives & ~false_negatives
+    )
+    return false_positives, false_negatives, other_mistakes
+
+
 def convert_to_classes(
     predictions: np.ndarray, num_classes, threshold: float = 0.5
 ) -> np.ndarray:

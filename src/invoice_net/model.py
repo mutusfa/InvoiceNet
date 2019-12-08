@@ -25,6 +25,7 @@ from invoice_net.metrics import (
     labeled_confusion_matrix,
     ConfusionMatrixCallback,
     F1ScoreCallback,
+    false_positives_false_negatives,
     ValPredictionsCallback,
 )
 
@@ -179,7 +180,7 @@ class InvoiceNetInterface:
         self.model.save_weights(os.path.join(self.config.model_path))
         return history
 
-    def evaluate(self, skip_correctly_uncategorized=True):
+    def evaluate(self, print_tables=False, skip_correctly_uncategorized=True):
         predictions = self.model.predict(
             self.data_handler.test_features, batch_size=self.config.batch_size
         )
@@ -189,6 +190,14 @@ class InvoiceNetInterface:
         test_labels = convert_to_classes(
             self.data_handler.test_labels,
             num_classes=self.data_handler.num_classes,
+        )
+
+        (
+            false_positives,
+            false_negatives,
+            other_mistakes,
+        ) = false_positives_false_negatives(
+            self.data_handler.test_labels, predictions
         )
 
         true_df = pd.DataFrame(
@@ -205,7 +214,21 @@ class InvoiceNetInterface:
         )
         raw_text_comparison_df = raw_text_comparison_df.merge(
             true_df, left_index=True, right_index=True
-        ).merge(pred_df, left_index=True, right_index=True)
+        ).merge(
+            pred_df,
+            left_index=True,
+            right_index=True,
+            suffixes=("true", "pred"),
+        )
+        raw_text_comparison_df["fp"] = false_positives.reshape(
+            false_positives.shape[0], -1
+        ).any(axis=-1)
+        raw_text_comparison_df["fn"] = false_negatives.reshape(
+            false_negatives.shape[0], -1
+        ).any(axis=-1)
+        raw_text_comparison_df["other"] = other_mistakes.reshape(
+            other_mistakes.shape[0], -1
+        ).any(axis=-1)
 
         if skip_correctly_uncategorized:
             # all masks here work on whole prediction/text line
@@ -227,6 +250,17 @@ class InvoiceNetInterface:
             predicted_labels,
             self.data_handler.human_readable_labels,
         )
+        if print_tables:
+            with pd.option_context(
+                "display.max_rows",
+                None,
+                "display.max_columns",
+                None,
+                "display.width",
+                0,
+            ):
+                print(raw_text_comparison_df)
+                print(matrix)
         return raw_text_comparison_df, matrix
 
     def create_model(self, data_handler, config) -> Any:
