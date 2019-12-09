@@ -40,6 +40,8 @@ parses_as_number:       Whether the N-gram parses as a fractional amount
 
 import copy
 import collections
+import dateutil.parser
+from datetime import datetime
 from itertools import chain
 import logging
 import re
@@ -90,6 +92,11 @@ def _calculate_distance_between_grams(first, second):
 
 
 def _parses_as_number(text):
+    try:
+        float(text)
+        return True
+    except ValueError:
+        pass
     currencies = [r"\$", "USD", "€", "EUR"]
     currencies_pattern = "|".join(currencies)
     amount_pattern = (
@@ -111,6 +118,19 @@ def _parses_as_serial_number(text):
     return has_numbers and has_letters and text.isalnum()
 
 
+def _parses_as_full_date(text):
+    try:
+        min_default = dateutil.parser.parse(
+            text, default=datetime.min, ignoretz=True
+        )
+        max_default = dateutil.parser.parse(
+            text, default=datetime.max, ignoretz=True
+        )
+    except (ValueError, TypeError, OverflowError):
+        return False
+    return min_default.date() == max_default.date()
+
+
 def _process_text(ngram):
     """Returns proccessed text and what does it parse as."""
     # TODO check if preserving titles changes anything
@@ -118,11 +138,7 @@ def _process_text(ngram):
     as_date = False
     as_number = False
     for word in ngram:
-        try:
-            as_date = bool(next(datefinder.find_dates(word)))
-        except (StopIteration, OverflowError):
-            as_date = False
-
+        as_date = _parses_as_full_date(word)
         word_is_number = _parses_as_number(word)
         as_number = as_number or word_is_number
 
@@ -139,7 +155,10 @@ def _process_text(ngram):
             else:  # keep the same amount of words in raw and processed text
                 # for word-wise labels would correspond to same words
                 processed_text.append(word)
-    as_number = as_number or as_date
+    try:
+        as_date = bool(next(datefinder.find_dates(" ".join(ngram))))
+    except (StopIteration, OverflowError, TypeError):
+        as_date = False
     return " ".join(processed_text), as_date, as_number
 
 
@@ -176,6 +195,8 @@ def _group_by_file(df):
         files = {"untitled": {"rows": df}}
     for filename, file_info in files.items():
         # Assuming all pages of invoice have the same width/height
+        if "page_number" not in files[filename]:
+            files[filename]["page_number"] = 0
         files[filename]["file_name"] = filename
         files[filename]["xmin"] = min(xmin for xmin in file_info["rows"].x1)
         files[filename]["xmax"] = max(xmax for xmax in file_info["rows"].x2)
