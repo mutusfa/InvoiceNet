@@ -55,8 +55,11 @@ class OneCycleLearning(CyclicLR):
 def weighted_binary_crossentropy(class_weights,):
     weights = ops.convert_to_tensor(class_weights, dtype="float32")
 
-    def bce(*args, weights=weights, **kwds):
-        orig_bce = K.binary_crossentropy(*args, **kwds)
+    def bce(y_true, *args, weights=weights, **kwds):
+        positive_weights = weights * y_true
+        negative_weights = weights * (1 - y_true) * 0.1
+        weights = positive_weights + negative_weights
+        orig_bce = K.binary_crossentropy(y_true, *args, **kwds)
         return K.mean(orig_bce * weights)
 
     return bce
@@ -221,15 +224,9 @@ class InvoiceNetInterface:
             right_index=True,
             suffixes=("true", "pred"),
         )
-        raw_text_comparison_df["fp"] = false_positives.reshape(
-            false_positives.shape[0], -1
-        ).any(axis=-1)
-        raw_text_comparison_df["fn"] = false_negatives.reshape(
-            false_negatives.shape[0], -1
-        ).any(axis=-1)
-        raw_text_comparison_df["other"] = other_mistakes.reshape(
-            other_mistakes.shape[0], -1
-        ).any(axis=-1)
+        raw_text_comparison_df["fp"] = false_positives.any(axis=-1)
+        raw_text_comparison_df["fn"] = false_negatives.any(axis=-1)
+        raw_text_comparison_df["other"] = other_mistakes.any(axis=-1)
 
         if skip_correctly_uncategorized:
             # all masks here work on whole prediction/text line
