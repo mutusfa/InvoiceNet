@@ -8,22 +8,20 @@ from tensorflow.keras.callbacks import Callback
 
 
 def false_positives_false_negatives(y_true, y_pred):
-    y_pred = y_pred > 0.5
-    mistakes = y_true != y_pred
+    y_true_classes = convert_to_classes(y_true)
+    y_pred_classes = convert_to_classes(y_pred)
+    mistakes = y_pred_classes != y_true_classes
 
-    y_true_any = y_true.argmax(axis=-1).astype(bool)
-    y_pred_any = (y_pred > 0.5).argmax(axis=-1).astype(bool)
-    mistakes_any = mistakes.any(axis=-1).astype(bool)
-    false_positives = mistakes_any & y_pred_any & ~y_true_any
-    false_negatives = mistakes_any & ~y_pred_any & y_true_any
-    other_mistakes = (
-        mistakes.any(axis=-1).astype(bool) & ~false_positives & ~false_negatives
-    )
+    y_true_any = y_true_classes.astype(bool)  # any nonzero class
+    y_pred_any = y_pred_classes.astype(bool)  # any nonzero class
+    false_positives = mistakes & y_pred_any & ~y_true_any
+    false_negatives = mistakes & ~y_pred_any & y_true_any
+    other_mistakes = mistakes & ~false_positives & ~false_negatives
     return false_positives, false_negatives, other_mistakes
 
 
 def convert_to_classes(
-    predictions: np.ndarray, num_classes, threshold: float = 0.5
+    predictions: np.ndarray, num_classes=None, threshold: float = 0.5
 ) -> np.ndarray:
     """Convert one-hot encoded predictions to labels.
 
