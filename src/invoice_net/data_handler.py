@@ -74,7 +74,7 @@ class DataHandler:
         "bottom_left_margin",
         "bottom_right_margin",
     ]
-    debugging_features = ["raw_text", "processed_text"]
+    debugging_features = ["raw_text", "processed_text", "file_name"]
     auxillary_features = [
         "length",
         "line_size",

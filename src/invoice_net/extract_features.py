@@ -12,6 +12,8 @@ text_pattern:           The raw text, after replacing
                             repeating whitespace with a single whitespace
                             the rest with ?
 
+file_name:              Name of the file this ngram is extracted from
+
 bottom_margin:          Vertical coordinate of the bottom margin of the
                         N-gram normalized to the page height
 

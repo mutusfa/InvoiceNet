@@ -210,6 +210,7 @@ class InvoiceNetInterface:
             {
                 "raw_text": self.data_handler.test_data["raw_text"],
                 "processed_text": self.data_handler.test_data["processed_text"],
+                "file_name": self.data_handler.test_data["file_name"],
             }
         )
         raw_text_comparison_df = raw_text_comparison_df.merge(
