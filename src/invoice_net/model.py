@@ -285,7 +285,8 @@ class InvoiceNetInterface:
 
     def save_meta(self):
         path = (
-            self.config.model_path.parent /
+            self.config.model_path.parent if
+            self.config.model_path else Path("./model") /
             f"{self.__class__.__name__}.{self.id}{META_SUFFIX}"
         )
         meta = {
