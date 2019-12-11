@@ -5,8 +5,6 @@ import pandas as pd
 
 from invoice_net.extract_features import extract_features
 
-META_SUFFIX = ".meta.json"
-
 parent_parser = argparse.ArgumentParser()
 
 parent_parser.add_argument(
@@ -48,6 +46,11 @@ parent_parser.add_argument(
     "--model_path",
     type=Path,
     help="path to save model after training",
+)
+parent_parser.add_argument(
+    "--meta_path",
+    type=Path,
+    help="path where model metadata is saved / will be saved",
 )
 parent_parser.add_argument(
     "--log_dir",

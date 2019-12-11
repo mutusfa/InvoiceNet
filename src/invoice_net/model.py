@@ -2,8 +2,6 @@ import json
 import math
 import os
 from pathlib import Path
-import random
-import string
 from typing import Any
 
 import numpy as np
@@ -22,7 +20,6 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import TensorBoard
 from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
 
-from invoice_net._config import META_SUFFIX
 from invoice_net.callbacks.cyclical_learning_rate import CyclicLR
 from tensorflow.python.framework import ops
 from sklearn.utils.class_weight import compute_class_weight
@@ -79,10 +76,6 @@ class InvoiceNetInterface:
         self.config = config
         print("Defining model graph...")
         self.model = self.create_model(data_handler, config)
-        self.id = ''.join(
-            random.choice(string.ascii_letters + string.digits)
-            for _ in range(6)
-        )
 
     def _create_needed_dirs(self):
         if not os.path.exists(self.config.log_dir):
@@ -133,10 +126,8 @@ class InvoiceNetInterface:
     def modelcheckpoints_callback(self, period=5):
         filename_format = "{epoch:02d}-{val_loss:.2f}-{val_macro_f1}.hdf5"
         return ModelCheckpoint(
-            os.path.join(
-                self.config.checkpoint_dir,
-                f"{self.__class__.__name__}.{self.id}.{filename_format}",
-            ),
+            (self.config.checkpoint_dir /
+                f"{self.config.model_path.stem}.{filename_format}"),
             monitor="val_macro_f1",
             verbose=0,
             save_best_only=True,
@@ -192,10 +183,7 @@ class InvoiceNetInterface:
             validation_freq=validation_freq,
             shuffle=self.config.shuffle,
         )
-        model_path = self.config.model_path or Path(
-            f"./model/{self.__class__.__name__}.{self.id}.hdf5"
-        )
-        self.model.save_weights(str(model_path))
+        self.model.save_weights(str(self.config.model_path))
         return history
 
     def evaluate(self, print_tables=False, skip_correctly_uncategorized=True):
@@ -284,17 +272,12 @@ class InvoiceNetInterface:
         print("\nSuccessfully loaded weights from {}".format(path))
 
     def save_meta(self):
-        path = (
-            self.config.model_path.with_suffix(META_SUFFIX)
-            if self.config.model_path else
-            Path(f"./model/{self.__class__.__name__}.{self.id}{META_SUFFIX}")
-        )
         meta = {
             "auxillary_features": self.data_handler.auxillary_features,
             "coordinates_features": self.data_handler.coordinates_features,
             "debugging_features": self.data_handler.debugging_features,
         }
-        with open(path, "w+") as meta_file:
+        with open(self.config.meta_path, "w+") as meta_file:
             json.dump(meta, meta_file, indent=4)
 
     def get_saliency(self):

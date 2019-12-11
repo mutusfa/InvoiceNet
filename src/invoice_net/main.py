@@ -1,9 +1,19 @@
+from pathlib import Path
+import random
+import string
+
 from invoice_net.data_handler import DataHandler
 from invoice_net.model import InvoiceNet
-from invoice_net._config import parent_parser, get_data_for_nn, META_SUFFIX
+from invoice_net._config import parent_parser, get_data_for_nn
+
+RUN_ID = ''.join(
+    random.choice(string.ascii_letters + string.digits)
+    for _ in range(6)
+)
 
 parent_parser.set_defaults(
-    load_weights="./model/InvoiceNet.hdf5"
+    model_path=Path(f"./model/InvoiceNet.{RUN_ID}.hdf5"),
+    meta_path=Path(f"./model/InvoiceNet.{RUN_ID}.meta.json"),
 )
 
 
@@ -20,10 +30,7 @@ def main(config=None):
             get_data_for_nn(config), validation_split=0, test_split=1
         )
     data_handler.load_embeddings(config.embedding_model)
-    data_handler.prepare_data(
-        config.model_path.with_suffix(META_SUFFIX) if
-        config.model_path else None
-    )
+    data_handler.prepare_data(config.meta_path)
     net = InvoiceNet(data_handler=data_handler, config=config)
 
     if config.mode == "train":
