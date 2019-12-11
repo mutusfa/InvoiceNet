@@ -268,8 +268,8 @@ class InvoiceNetInterface:
 
     def load_weights(self, path):
         """Load weights from the given model file."""
-        self.model.load_weights(path)
-        print("\nSuccessfully loaded weights from {}".format(path))
+        self.model.load_weights(str(path))
+        print(f"\nSuccessfully loaded weights from {path}")
 
     def save_meta(self):
         meta = {
