@@ -288,7 +288,7 @@ class DataHandler:
         """Load pre-trained fasttext model."""
         print("\nLoading pre-trained embeddings...")
 
-        self.fasttext = fasttext.load_model(model_path)
+        self.fasttext = fasttext.load_model(str(model_path))
         self.embed_size = self.fasttext.get_dimension()
 
         print("\nSuccessfully loaded pre-trained embeddings!")
