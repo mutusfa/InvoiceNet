@@ -1,6 +1,7 @@
 import json
 import math
 import os
+from pathlib import Path
 import random
 import string
 from typing import Any
@@ -191,7 +192,10 @@ class InvoiceNetInterface:
             validation_freq=validation_freq,
             shuffle=self.config.shuffle,
         )
-        self.model.save_weights(os.path.join(self.config.model_path))
+        model_path = self.config.model_path or Path(
+            f"./model/{self.__class__.__name__}.{self.id}.hdf5"
+        )
+        self.model.save_weights(model_path)
         return history
 
     def evaluate(self, print_tables=False, skip_correctly_uncategorized=True):
@@ -280,9 +284,9 @@ class InvoiceNetInterface:
         print("\nSuccessfully loaded weights from {}".format(path))
 
     def save_meta(self):
-        path = os.path.join(
-            self.config.checkpoint_dir,
-            f"{self.__class__.__name__}.{self.id}{META_SUFFIX}",
+        path = (
+            self.config.model_path.parent /
+            f"{self.__class__.__name__}.{self.id}{META_SUFFIX}"
         )
         meta = {
             "auxillary_features": self.data_handler.auxillary_features,

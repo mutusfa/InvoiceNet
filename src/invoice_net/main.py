@@ -3,7 +3,7 @@ from invoice_net.model import InvoiceNet
 from invoice_net._config import parent_parser, get_data_for_nn, META_SUFFIX
 
 parent_parser.set_defaults(
-    load_weights="./model/InvoiceNet.hdf5", model_path="./model/InvoiceNet.hdf5"
+    load_weights="./model/InvoiceNet.hdf5"
 )
 
 
@@ -21,8 +21,8 @@ def main(config=None):
         )
     data_handler.load_embeddings(config.embedding_model)
     data_handler.prepare_data(
-        config.load_weights.with_suffix(META_SUFFIX) if
-        config.load_weights else None
+        config.model_path.with_suffix(META_SUFFIX) if
+        config.model_path else None
     )
     net = InvoiceNet(data_handler=data_handler, config=config)
 
