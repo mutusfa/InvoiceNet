@@ -159,7 +159,9 @@ class DataHandler:
 
         print("Preparing data")
 
-        if meta_path:
+        if not meta_path.exists():
+            print(f"Creating default meta file at {meta_path}")
+        else:
             with open(meta_path, "r") as meta_file:
                 override = json.load(meta_file)
                 self.auxillary_features = override["auxillary_features"]
