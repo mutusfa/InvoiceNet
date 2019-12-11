@@ -1,4 +1,5 @@
 """Handles data for nn models."""
+import json
 
 import fasttext
 import numpy as np
@@ -126,7 +127,7 @@ class DataHandler:
         self.validation_data = {}
         self.test_data = {}
 
-    def prepare_data(self):
+    def prepare_data(self, meta_path=None):
         """Prepare data for training."""
 
         def get_sentences_embeddings(text):
@@ -157,6 +158,13 @@ class DataHandler:
             return df
 
         print("Preparing data")
+
+        if meta_path:
+            with open(meta_path) as meta_file:
+                override = json.load(meta_file)
+                self.auxillary_features = override["auxillary_features"]
+                self.coordinates_features = override["coordinates_features"]
+                self.debugging_features = override["debugging_features"]
 
         closest_ngrams = pd.DataFrame(
             self.data.closest_ngrams.values.tolist(),

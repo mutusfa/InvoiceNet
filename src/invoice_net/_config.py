@@ -1,8 +1,11 @@
 import argparse
+from pathlib import Path
 
 import pandas as pd
 
 from invoice_net.extract_features import extract_features
+
+META_SUFFIX = ".meta.json"
 
 parent_parser = argparse.ArgumentParser()
 
@@ -17,7 +20,11 @@ parent_parser.add_argument(
     "--data", default="data/dftrain.pk", help="path to training data"
 )
 parent_parser.add_argument("--raw_data", help="path to unprocessed data")
-parent_parser.add_argument("--load_weights", help="path to load weights")
+parent_parser.add_argument(
+    "--load_weights",
+    type=Path,
+    help="path to load weights",
+)
 parent_parser.add_argument(
     "--embedding_model",
     default="data/model.bin",

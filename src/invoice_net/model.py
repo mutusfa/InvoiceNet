@@ -1,5 +1,8 @@
+import json
 import math
 import os
+import random
+import string
 from typing import Any
 
 import numpy as np
@@ -17,6 +20,8 @@ from tensorflow.keras.layers import (
 import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import TensorBoard
 from keras.callbacks import ModelCheckpoint  # specifically not tf.keras version
+
+from invoice_net._config import META_SUFFIX
 from invoice_net.callbacks.cyclical_learning_rate import CyclicLR
 from tensorflow.python.framework import ops
 from sklearn.utils.class_weight import compute_class_weight
@@ -53,7 +58,7 @@ class OneCycleLearning(CyclicLR):
         super().on_batch_end(batch, logs=logs)
 
 
-def weighted_binary_crossentropy(class_weights,):
+def weighted_binary_crossentropy(class_weights, ):
     weights = ops.convert_to_tensor(class_weights, dtype="float32")
 
     def bce(y_true, *args, weights=weights, **kwds):
@@ -73,6 +78,10 @@ class InvoiceNetInterface:
         self.config = config
         print("Defining model graph...")
         self.model = self.create_model(data_handler, config)
+        self.id = ''.join(
+            random.choice(string.ascii_letters + string.digits)
+            for _ in range(6)
+        )
 
     def _create_needed_dirs(self):
         if not os.path.exists(self.config.log_dir):
@@ -121,11 +130,11 @@ class InvoiceNetInterface:
         ]
 
     def modelcheckpoints_callback(self, period=5):
-        filename_format = ".{epoch:02d}-{val_loss:.2f}-{val_macro_f1}.hdf5"
+        filename_format = "{epoch:02d}-{val_loss:.2f}-{val_macro_f1}.hdf5"
         return ModelCheckpoint(
             os.path.join(
                 self.config.checkpoint_dir,
-                self.__class__.__name__ + filename_format,
+                f"{self.__class__.__name__}.{self.id}.{filename_format}",
             ),
             monitor="val_macro_f1",
             verbose=0,
@@ -154,6 +163,7 @@ class InvoiceNetInterface:
         return class_weights
 
     def train(self, callback_period=10, validation_freq=None):
+        self.save_meta()
         callback_period = callback_period or self.config.checkpoint_period
         validation_freq = validation_freq or callback_period
         print("\nInitializing training...")
@@ -268,6 +278,19 @@ class InvoiceNetInterface:
         """Load weights from the given model file."""
         self.model.load_weights(path)
         print("\nSuccessfully loaded weights from {}".format(path))
+
+    def save_meta(self):
+        path = os.path.join(
+            self.config.checkpoint_dir,
+            f"{self.__class__.__name__}.{self.id}{META_SUFFIX}",
+        )
+        meta = {
+            "auxillary_features": self.data_handler.auxillary_features,
+            "coordinates_features": self.data_handler.coordinates_features,
+            "debugging_features": self.data_handler.debugging_features,
+        }
+        with open(path) as meta_file:
+            json.dump(meta, meta_file)
 
     def get_saliency(self):
         input = self.data_handler.test_features
