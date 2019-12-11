@@ -126,7 +126,7 @@ class InvoiceNetInterface:
     def modelcheckpoints_callback(self, period=5):
         filename_format = "{epoch:02d}-{val_loss:.2f}-{val_macro_f1}.hdf5"
         return ModelCheckpoint(
-            (self.config.checkpoint_dir /
+            str(self.config.checkpoint_dir /
                 f"{self.config.model_path.stem}.{filename_format}"),
             monitor="val_macro_f1",
             verbose=0,
