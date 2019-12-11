@@ -294,7 +294,7 @@ class InvoiceNetInterface:
             "coordinates_features": self.data_handler.coordinates_features,
             "debugging_features": self.data_handler.debugging_features,
         }
-        with open(path) as meta_file:
+        with open(path, "w+") as meta_file:
             json.dump(meta, meta_file)
 
     def get_saliency(self):

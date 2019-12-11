@@ -160,7 +160,7 @@ class DataHandler:
         print("Preparing data")
 
         if meta_path:
-            with open(meta_path) as meta_file:
+            with open(meta_path, "r") as meta_file:
                 override = json.load(meta_file)
                 self.auxillary_features = override["auxillary_features"]
                 self.coordinates_features = override["coordinates_features"]
