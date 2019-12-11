@@ -195,7 +195,7 @@ class InvoiceNetInterface:
         model_path = self.config.model_path or Path(
             f"./model/{self.__class__.__name__}.{self.id}.hdf5"
         )
-        self.model.save_weights(model_path)
+        self.model.save_weights(str(model_path))
         return history
 
     def evaluate(self, print_tables=False, skip_correctly_uncategorized=True):
@@ -285,9 +285,9 @@ class InvoiceNetInterface:
 
     def save_meta(self):
         path = (
-            self.config.model_path.parent if
-            self.config.model_path else Path("./model") /
-            f"{self.__class__.__name__}.{self.id}{META_SUFFIX}"
+            self.config.model_path.with_suffix(META_SUFFIX)
+            if self.config.model_path else
+            Path(f"./model/{self.__class__.__name__}.{self.id}{META_SUFFIX}")
         )
         meta = {
             "auxillary_features": self.data_handler.auxillary_features,
