@@ -295,7 +295,7 @@ class InvoiceNetInterface:
             "debugging_features": self.data_handler.debugging_features,
         }
         with open(path, "w+") as meta_file:
-            json.dump(meta, meta_file)
+            json.dump(meta, meta_file, indent=4)
 
     def get_saliency(self):
         input = self.data_handler.test_features
