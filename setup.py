@@ -25,7 +25,6 @@ setuptools.setup(
         "numpy",
         "pandas",
         "sklearn",
-        "tensorflow",
         "tqdm",
         "fasttext @ https://github.com/facebookresearch/fastText/tarball/master#egg=fasttext-0.9.1",
     ],

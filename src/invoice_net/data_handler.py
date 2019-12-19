@@ -110,7 +110,7 @@ class DataHandler:
     ]
     human_readable_labels = {
         0: "unclassified",
-        1: "invoice_date",
+        1: "document_date",
         2: "document_id",
         3: "amount_total",
     }
