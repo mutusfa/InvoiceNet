@@ -369,7 +369,7 @@ class InvoiceNet(InvoiceNetInterface):
             activation="sigmoid",
         )(output)
         output = Reshape(
-            (data_handler.num_classes, data_handler.max_ngram_size)
+            (data_handler.max_ngram_size, data_handler.num_classes)
         )(output)
 
         return Model(
