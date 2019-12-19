@@ -23,7 +23,6 @@ setuptools.setup(
         "datefinder",
         "Keras",
         "numpy",
-        "nltk",
         "pandas",
         "sklearn",
         "tensorflow",
