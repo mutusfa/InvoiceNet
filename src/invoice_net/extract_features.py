@@ -50,7 +50,6 @@ import re
 import sys
 
 import datefinder
-from nltk import ngrams
 import pandas as pd
 from tqdm import tqdm
 
@@ -231,14 +230,7 @@ def _group_by_file(df):
     return files
 
 
-def _find_ngram_labels(ngram, line):
-    left_index = line.words.index(ngram[0])
-    right_index = line.words.index(ngram[-1], left_index)
-    labels = line.labels.strip().split()[left_index : right_index + 1]
-    return [LABEL_DICT[int(l)] for l in labels]
-
-
-def _fill_gram_features(ngram, file_info, line):
+def _fill_gram_features(ngram, file_info, line, left_index, right_index):
     gram = copy.deepcopy(EMPTY_SINGLE_GRAM)
     (
         gram["processed_text"],
@@ -271,7 +263,10 @@ def _fill_gram_features(ngram, file_info, line):
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
     if "labels" in line:
-        gram["labels"] = _find_ngram_labels(ngram, line)
+        gram["labels"] = [
+            LABEL_DICT[int(i)]
+            for i in line.labels.strip().split()[left_index:right_index]
+        ]
     gram["file_name"] = file_info["file_name"]
     return gram
 
@@ -327,6 +322,11 @@ def _find_closest_grams(grams, start=0):
                 outer_gram["closest_ngrams"][3] = inner_gram_id
 
 
+def ngrams(tokens, size):
+    for idx in range(len(tokens) - size + 1):
+        yield tokens[idx : idx + size], idx, idx + size
+
+
 def ngrammer(tokens, length=4):
     """
     Generates n-grams from the given tokens
@@ -335,8 +335,8 @@ def ngrammer(tokens, length=4):
     :return: n-grams as tuples
     """
     for n in range(1, min(len(tokens) + 1, length + 1)):
-        for gram in ngrams(tokens, n):
-            yield gram
+        for gram, start, end in ngrams(tokens, n):
+            yield gram, start, end
 
 
 def num_labels(row_df: pd.DataFrame) -> int:
@@ -375,8 +375,12 @@ def extract_features(dataframe, num_labels_required=0):
                     continue
             old_num_grams = len(grams)
             for _line_num, line in file_info["rows"].iterrows():
-                for ngram in ngrammer(line.words):
-                    grams.append(_fill_gram_features(ngram, file_info, line))
+                for ngram, start_idx, end_idx in ngrammer(line.words):
+                    grams.append(
+                        _fill_gram_features(
+                            ngram, file_info, line, start_idx, end_idx
+                        )
+                    )
             _find_closest_grams(grams, start=old_num_grams)
             num_processed += 1
 
