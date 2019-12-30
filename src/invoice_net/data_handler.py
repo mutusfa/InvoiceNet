@@ -115,7 +115,7 @@ class DataHandler:
         3: "amount_total",
     }
 
-    def __init__(self, data=None, validation_split=0.125, test_split=0.1):
+    def __init__(self, data=None, validation_split=0.0, test_split=0.0):
         print("Initializing data handler")
         self.data = data
         self.embed_size = None
