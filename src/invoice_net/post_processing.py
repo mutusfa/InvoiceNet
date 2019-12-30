@@ -1,6 +1,6 @@
 from collections import defaultdict
 import dateutil.parser
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Dict, Iterable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ from invoice_net.metrics import convert_to_classes
 def __inner_filter_out_mistakes(
     tokens: Iterable[str],
     filter_func: Callable[[str], Any],
-    ignore_exceptions: bool = False,
+    ignore_exceptions: bool = True,
 ) -> np.ndarray:
     mask = []
     for token in tokens:
@@ -33,18 +33,22 @@ def __inner_filter_out_mistakes(
 
 def _filter_out_mistakes(token_predictions: pd.DataFrame) -> pd.DataFrame:
     """Filter out obvious mistakes, like Foo bar -> date prediction"""
-    date_mask = __inner_filter_out_mistakes(
-        token_predictions["document_date"],
-        dateutil.parser.parse,
-        ignore_exceptions=True,
+    filters_table: Dict[str, Callable[[str], Any]] = defaultdict(
+        lambda: lambda x: x
     )
-    id_mask = __inner_filter_out_mistakes(
-        token_predictions["document_id"], _parses_as_serial_number
-    )
-    numbers_mask = __inner_filter_out_mistakes(
-        token_predictions["amount_total"], _parses_as_number
-    )
-    return token_predictions[date_mask | id_mask | numbers_mask]
+    filters_table["document_date"] = dateutil.parser.parse
+    filters_table["document_id"] = _parses_as_serial_number
+    filters_table["amount_total"] = _parses_as_number
+    groups = []
+    for prediction, group in token_predictions.groupby("pred"):
+        groups.append(
+            group[
+                __inner_filter_out_mistakes(
+                    group.word, filters_table[prediction]
+                )
+            ]
+        )
+    return pd.concat(groups)
 
 
 def _get_token_predictions(
@@ -87,7 +91,8 @@ def hungarian_prediction(token_predictions):
             hungarian_table
         )
         for row_idx, col_idx in zip(row_idxs, col_idxs):
-            predictions[file_name][col_idx] = (
+            col_name = hungarian_table.columns[col_idx][1]
+            predictions[file_name][col_name] = (
                 hungarian_table.iloc[row_idx].name,
                 1 - hungarian_table.iloc[row_idx, col_idx],
             )
@@ -102,15 +107,13 @@ def get_predicted_classes(
     token_predictions = _get_token_predictions(
         predictions, data_handler.data.raw_text, data_handler.data.file_name
     )
-    labels_names = data_handler.to_human_readable_classes(
-        token_predictions.columns
+    token_predictions["cost"] = 1 - token_predictions["confidence"]
+    token_predictions["pred"] = data_handler.to_human_readable_classes(
+        token_predictions.pred
     )
-    token_predictions.rename(
-        {k: v for k, v in zip(predictions.columns, labels_names)},
-        axis="columns",
+    token_predictions.drop(
+        token_predictions[token_predictions.pred == "unclassified"].index,
         inplace=True,
     )
     token_predictions = _filter_out_mistakes(token_predictions)
-    return hungarian_prediction(token_predictions).drop(
-        "unclassified", axis="columns"
-    )
+    return hungarian_prediction(token_predictions)
