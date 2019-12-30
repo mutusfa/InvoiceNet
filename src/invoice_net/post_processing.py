@@ -1,5 +1,4 @@
 from collections import defaultdict
-import dateutil.parser
 from typing import Any, Callable, Dict, Iterable, Sequence
 
 import numpy as np
@@ -7,6 +6,7 @@ import pandas as pd
 import scipy.optimize
 
 from invoice_net.extract_features import (
+    _parses_as_full_date,
     _parses_as_number,
     _parses_as_serial_number,
 )
@@ -17,7 +17,7 @@ from invoice_net.metrics import convert_to_classes
 def __inner_filter_out_mistakes(
     tokens: Iterable[str],
     filter_func: Callable[[str], Any],
-    ignore_exceptions: bool = True,
+    ignore_exceptions: bool = False,
 ) -> np.ndarray:
     mask = []
     for token in tokens:
@@ -36,7 +36,7 @@ def _filter_out_mistakes(token_predictions: pd.DataFrame) -> pd.DataFrame:
     filters_table: Dict[str, Callable[[str], Any]] = defaultdict(
         lambda: lambda x: x
     )
-    filters_table["document_date"] = dateutil.parser.parse
+    filters_table["document_date"] = _parses_as_full_date
     filters_table["document_id"] = _parses_as_serial_number
     filters_table["amount_total"] = _parses_as_number
     groups = []
