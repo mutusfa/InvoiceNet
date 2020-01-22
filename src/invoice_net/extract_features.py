@@ -76,9 +76,6 @@ EMPTY_SINGLE_GRAM = {
 }
 
 
-LABEL_DICT = {0: 0, 1: 1, 2: 2, 18: 3}
-
-
 def _calculate_distance_between_grams(first, second):
     """Calculates distance vectors between two grams.
 
@@ -264,8 +261,7 @@ def _fill_gram_features(ngram, file_info, line, left_index, right_index):
     ) / file_info["height"]
     if "labels" in line:
         gram["labels"] = [
-            LABEL_DICT[int(i)]
-            for i in line.labels.strip().split()[left_index:right_index]
+            i for i in line.labels.strip().split()[left_index:right_index]
         ]
     gram["file_name"] = file_info["file_name"]
     return gram
