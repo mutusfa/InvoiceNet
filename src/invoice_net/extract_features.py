@@ -242,9 +242,9 @@ def _fill_gram_features(ngram, file_info, line, left_index, right_index):
     gram["text_pattern"] = _text_pattern(raw_text)
     gram["length"] = len(" ".join(ngram))
     gram["line_size"] = len(line.words)
-    gram["position_on_line"] = line.words.index(ngram[0]) / len(line.words)
+    gram["position_on_line"] = left_index / len(line.words)
     gram["has_digits"] = bool(re.search(r"\d", raw_text))
-    leftmost_coord = line.token_coords[line.words.index(ngram[0])]["xmin"]
+    leftmost_coord = line.token_coords[left_index]["xmin"]
     gram["left_margin"] = (leftmost_coord - file_info["xmin"]) / file_info[
         "width"
     ]
@@ -253,7 +253,7 @@ def _fill_gram_features(ngram, file_info, line, left_index, right_index):
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
-    rightmost_coord = line.token_coords[line.words.index(ngram[-1])]["xmax"]
+    rightmost_coord = line.token_coords[right_index]["xmax"]
     gram["right_margin"] = (rightmost_coord - file_info["xmin"]) / file_info[
         "width"
     ]
