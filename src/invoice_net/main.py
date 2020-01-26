@@ -6,9 +6,8 @@ from invoice_net.data_handler import DataHandler
 from invoice_net.model import InvoiceNet
 from invoice_net._config import parent_parser, get_data_for_nn
 
-RUN_ID = ''.join(
-    random.choice(string.ascii_letters + string.digits)
-    for _ in range(6)
+RUN_ID = "".join(
+    random.choice(string.ascii_letters + string.digits) for _ in range(6)
 )
 
 parent_parser.set_defaults(
@@ -30,6 +29,10 @@ def main(config=None):
             get_data_for_nn(config), validation_split=0, test_split=1
         )
     data_handler.load_embeddings(config.embedding_model)
+    if config.mode == "train":
+        data_handler.validation_split = 0.25
+        data_handler.train_split = 0.1
+
     data_handler.prepare_data(config.meta_path)
     net = InvoiceNet(data_handler=data_handler, config=config)
 
