@@ -160,7 +160,7 @@ class InvoiceNetInterface:
 
     def train(self, callback_period=10, validation_freq=None):
         self.save_meta()
-        callback_period = callback_period or self.config.checkpoint_period
+        callback_period = callback_period or self.config.callback_frequency
         validation_freq = validation_freq or callback_period
         print("\nInitializing training...")
         self._create_needed_dirs()
