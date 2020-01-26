@@ -8,3 +8,4 @@ ipython = "*"
 pipenv = "*"
 
 [packages]
+invoice-net-mutusfa = {editable = true,path = "."}
