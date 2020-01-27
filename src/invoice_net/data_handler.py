@@ -210,13 +210,18 @@ class DataHandler:
         )
         for key in self.debugging_features:
             features[key] = df.loc[:, key].values
+        for key, array in features.items():
+            try:
+                assert not np.isnan(array).any(), f"{key} has NaNs"
+            except TypeError:
+                pass  # assuming non-numerical dtypes are not passed to nn
+
         self.train_data, self.validation_data, self.test_data = split_data(
             features,
             1 - self.validation_split - self.test_split,
             self.validation_split,
             self.test_split,
         )
-
         try:
             labels = pad_sequences(
                 self.data.labels,
