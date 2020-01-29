@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 import scipy.optimize
 
-from invoice_net.extract_features import (
-    _parses_as_full_date,
-    _parses_as_number,
-    _parses_as_serial_number,
+from invoice_net.parsers import (
+    parses_as_full_date,
+    parses_as_number,
+    parses_as_serial_number,
 )
 from invoice_net.data_handler import DataHandler
 from invoice_net.metrics import convert_to_classes
@@ -36,9 +36,9 @@ def _filter_out_mistakes(token_predictions: pd.DataFrame) -> pd.DataFrame:
     filters_table: Dict[str, Callable[[str], Any]] = defaultdict(
         lambda: lambda x: x
     )
-    filters_table["document_date"] = _parses_as_full_date
-    filters_table["document_id"] = _parses_as_serial_number
-    filters_table["amount_total"] = _parses_as_number
+    filters_table["document_date"] = parses_as_full_date
+    filters_table["document_id"] = parses_as_serial_number
+    filters_table["amount_total"] = parses_as_number
     groups = []
     for prediction, group in token_predictions.groupby("pred"):
         groups.append(
