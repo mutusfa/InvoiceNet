@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 import math
 import os
 from pathlib import Path
@@ -32,7 +31,7 @@ from invoice_net.metrics import (
     ConfusionMatrixCallback,
     F1ScoreCallback,
     false_positives_false_negatives,
-    ValPredictionsCallback,
+    PredictionsCallback,
 )
 
 
@@ -63,7 +62,7 @@ def weighted_binary_crossentropy(class_weights,):
 
     def bce(y_true, *args, weights=weights, **kwds):
         positive_weights = weights * y_true
-        negative_weights = weights * (1 - y_true)
+        negative_weights = 1 / weights * (1 - y_true)
         weights = positive_weights + negative_weights
         orig_bce = K.binary_crossentropy(y_true, *args, **kwds)
         return K.mean(orig_bce * weights)
@@ -72,6 +71,7 @@ def weighted_binary_crossentropy(class_weights,):
 
 
 class InvoiceNetInterface:
+    # initialization
     def __init__(self, data_handler, config):
         print("Initializing model...")
         self.data_handler = data_handler
@@ -86,9 +86,12 @@ class InvoiceNetInterface:
         if not os.path.exists(self.config.checkpoint_dir):
             os.makedirs(self.config.checkpoint_dir)
 
+    # callbacks
     def tensorboard_callback(self, period=5):
+        log_dir = Path(self.config.log_dir)
+        run_number = len([x for x in log_dir.iterdir() if x.is_dir()]) + 1
         return TensorBoard(
-            log_dir=self.config.log_dir,
+            log_dir=log_dir / str(run_number),
             histogram_freq=period,
             write_graph=True,
             write_images=True,
@@ -105,19 +108,22 @@ class InvoiceNetInterface:
             max_lr=0.01,
         )
 
-    def metrics_callbacks(self, validation_data, period=5):
+    def metrics_callbacks(self, training_data, validation_data, period=5):
         return [
-            ValPredictionsCallback(
+            PredictionsCallback(
+                training_data=training_data,
                 validation_data=validation_data,
                 num_classes=self.data_handler.num_classes,
                 period=period,
             ),
             F1ScoreCallback(
+                training_data=training_data,
                 validation_data=validation_data,
                 num_classes=self.data_handler.num_classes,
                 period=period,
             ),
             ConfusionMatrixCallback(
+                training_data=training_data,
                 validation_data=validation_data,
                 num_classes=self.data_handler.num_classes,
                 human_readable_labels=self.data_handler.human_readable_labels,
@@ -139,6 +145,8 @@ class InvoiceNetInterface:
             mode="max",
             period=period,
         )
+
+    # training
 
     def get_class_weights(self, labels=None):
         labels = labels or self.data_handler.labels
@@ -164,31 +172,54 @@ class InvoiceNetInterface:
         validation_freq = validation_freq or callback_period
         print("\nInitializing training...")
         self._create_needed_dirs()
+        training_data = (self.data_handler.features, self.data_handler.labels)
         validation_data = (
             self.data_handler.validation_features,
             self.data_handler.validation_labels,
         )
+        try:
+            history = self.model.fit(
+                self.data_handler.features,
+                self.data_handler.labels,
+                batch_size=self.config.batch_size,
+                verbose=True,
+                epochs=self.config.num_epochs,
+                callbacks=[
+                    *self.metrics_callbacks(
+                        training_data=training_data,
+                        validation_data=validation_data,
+                        period=callback_period,
+                    ),
+                    self.one_cycle_learning_callback(),
+                    self.tensorboard_callback(period=callback_period),
+                    self.modelcheckpoints_callback(period=callback_period),
+                ],
+                validation_data=(validation_data),
+                validation_freq=validation_freq,
+                shuffle=self.config.shuffle,
+            )
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            print(f"Exception was raised during training: {e}")
+            self.print_layers()
+        else:
+            self.model.save_weights(str(self.config.model_path))
+            return history
 
-        history = self.model.fit(
-            self.data_handler.features,
-            self.data_handler.labels,
-            batch_size=self.config.batch_size,
-            verbose=True,
-            epochs=self.config.num_epochs,
-            callbacks=[
-                *self.metrics_callbacks(
-                    validation_data=validation_data, period=callback_period
-                ),
-                self.one_cycle_learning_callback(),
-                self.tensorboard_callback(period=callback_period),
-                self.modelcheckpoints_callback(period=callback_period),
-            ],
-            validation_data=(validation_data),
-            validation_freq=validation_freq,
-            shuffle=self.config.shuffle,
+    def create_model(self, data_handler, config) -> Any:
+        raise NotImplementedError(
+            "Model should be defined in create_model method"
         )
-        self.model.save_weights(str(self.config.model_path))
-        return history
+
+    def compile_model(self):
+        print("Compiling model...")
+        self.model.compile(
+            loss=weighted_binary_crossentropy(self.get_class_weights()),
+            optimizer="Adam",
+        )
+
+    # testing/debugging
 
     def evaluate(self, print_tables=False, skip_correctly_uncategorized=True):
         predictions = self.model.predict(
@@ -269,18 +300,13 @@ class InvoiceNetInterface:
 
         return raw_text_comparison_df, matrix
 
-    def create_model(self, data_handler, config) -> Any:
-        raise NotImplementedError(
-            "Model should be defined in create_model method"
-        )
-
-    def compile_model(self):
-        print("Compiling model...")
-        self.model.compile(
-            loss=weighted_binary_crossentropy(self.get_class_weights()),
-            optimizer="Adam",
-            metrics=["accuracy"],
-        )
+    def print_layers(self, data=None):
+        data = data or self.data_handler.features
+        for layer in self.model.layers:
+            temp_model = Model(
+                inputs=self.model.input, outputs=self.model.output
+            )
+            print(f"{layer.name} output: {temp_model.predict(data)}")
 
     # saving/loading
 
@@ -347,22 +373,29 @@ class InvoiceNet(InvoiceNetInterface):
             dtype="float32",
             name="bottom_sentences_embeddings",
         )
+        input_layers = [
+            words_embeddings,
+            sentences_embeddings,
+            left_sentences_embeddings,
+            top_sentences_embeddings,
+            right_sentences_embeddings,
+            bottom_sentences_embeddings,
+            coordinates,
+            aux_features,
+        ]
 
-        output = concatenate(
-            [
-                Flatten()(words_embeddings),
-                Flatten()(sentences_embeddings),
-                Flatten()(left_sentences_embeddings),
-                Flatten()(top_sentences_embeddings),
-                Flatten()(right_sentences_embeddings),
-                Flatten()(bottom_sentences_embeddings),
-                coordinates,
-                aux_features,
-            ]
-        )
+        output = concatenate([Flatten()(i) for i in input_layers])
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dense(config.size_hidden, activation="relu")(output)
+        skip = output
         output = Dropout(0.5)(output)
+
+        output = Dense(config.size_hidden, activation="relu")(output)
+        output = Dense(config.size_hidden, activation="relu")(output)
+        output = Dense(config.size_hidden, activation="relu")(output)
+        output = concatenate([skip, output])
+        output = Dropout(0.5)(output)
+
         output = Dense(config.size_hidden, activation="relu")(output)
         output = Dense(
             data_handler.num_classes * data_handler.max_ngram_size,
