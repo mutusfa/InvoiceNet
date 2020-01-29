@@ -21,14 +21,10 @@ parent_parser.add_argument(
     help="path to training data",
 )
 parent_parser.add_argument(
-    "--raw_data",
-    type=Path,
-    help="path to unprocessed data",
+    "--raw_data", type=Path, help="path to unprocessed data",
 )
 parent_parser.add_argument(
-    "--load_weights",
-    type=Path,
-    help="path to load weights",
+    "--load_weights", type=Path, help="path to load weights",
 )
 parent_parser.add_argument(
     "--embedding_model",
@@ -43,9 +39,7 @@ parent_parser.add_argument(
     help="path to directory where checkpoints should be stored",
 )
 parent_parser.add_argument(
-    "--model_path",
-    type=Path,
-    help="path to save model after training",
+    "--model_path", type=Path, help="path to save model after training",
 )
 parent_parser.add_argument(
     "--meta_path",
