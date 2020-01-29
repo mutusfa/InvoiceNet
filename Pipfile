@@ -6,6 +6,9 @@ verify_ssl = true
 [dev-packages]
 ipython = "*"
 pipenv = "*"
+tensorflow = "*"
 
 [packages]
 invoice-net-mutusfa = {editable = true,path = "."}
+tensorflow = "*"
+invoke = "*"
