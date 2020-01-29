@@ -42,8 +42,6 @@ parses_as_number:       Whether the N-gram parses as a fractional amount
 
 import copy
 import collections
-import dateutil.parser
-from datetime import datetime
 from itertools import chain
 import logging
 import re
@@ -52,6 +50,8 @@ import sys
 import datefinder
 import pandas as pd
 from tqdm import tqdm
+
+from invoice_net.parsers import PARSERS_DATAFRAME
 
 LOG = logging.getLogger(__name__)
 
@@ -89,63 +89,17 @@ def _calculate_distance_between_grams(first, second):
     return left, above, right, below, left_margin_offset
 
 
-def _parses_as_number(text):
-    try:
-        float(text)
-        return True
-    except ValueError:
-        pass
-    currencies = [r"\$", "USD", "€", "EUR"]
-    currencies_pattern = "|".join(currencies)
-    amount_pattern = (
-        r"(?:^|\s|"
-        + currencies_pattern
-        + r")\d+\.\d+(?:$|\s|"
-        + currencies_pattern
-        + r")"
-    )
-    try:
-        return bool(re.search(amount_pattern, text)[0])
-    except TypeError:  # no matches
-        return None
-
-
-def _parses_as_serial_number(text):
-    has_numbers = re.search(r"\d", text)
-    has_letters = re.search(r"[a-zA-Z]", text)
-    return has_numbers and has_letters and text.isalnum()
-
-
-def _parses_as_full_date(text):
-    try:
-        min_default = dateutil.parser.parse(
-            text, default=datetime.min, ignoretz=True
-        )
-        max_default = dateutil.parser.parse(
-            text, default=datetime.max, ignoretz=True
-        )
-    except (ValueError, TypeError, OverflowError):
-        return False
-    return min_default.date() == max_default.date()
-
-
 def _process_text(ngram):
     """Returns proccessed text and what does it parse as."""
     # TODO check if preserving titles changes anything
+
     processed_text = []
-    as_date = False
     as_number = False
     for word in ngram:
-        as_date = _parses_as_full_date(word)
-        word_is_number = _parses_as_number(word)
-        as_number = as_number or word_is_number
-
-        if as_date:
-            processed_text.append("date")
-        elif word_is_number:
-            processed_text.append("number")
-        elif _parses_as_serial_number(word):
-            processed_text.append("serial_number")
+        for _, (parser, priority, label) in PARSERS_DATAFRAME.iterrows():
+            if parser(word):
+                processed_text.append(label)
+                break
         else:
             alphanum_only = "".join(filter(str.isalnum, word))
             if alphanum_only:
@@ -250,7 +204,7 @@ def _fill_gram_features(ngram, file_info, line, left_index, right_index):
         - file_info["ymin"]
         + line.page_number * file_info["page_height"]
     ) / file_info["height"]
-    rightmost_coord = line.token_coords[right_index]["xmax"]
+    rightmost_coord = line.token_coords[right_index - 1]["xmax"]
     gram["right_margin"] = (rightmost_coord - file_info["xmin"]) / file_info[
         "width"
     ]
