@@ -55,22 +55,25 @@ def _get_token_predictions(
     predictions: np.ndarray, raw_text: Sequence[str], file_names: Sequence[str]
 ) -> pd.DataFrame:
     """Take model predictions and flatten to prediction per token."""
-    predicted_classes = convert_to_classes(predictions)
-    confidence = predictions.max(axis=-1)
     assert predictions.shape[0] == len(raw_text) == len(file_names), (
         f"Number of samples does not match; ({predictions.shape[0]}, "
         f"{len(raw_text)}, {len(file_names)})"
     )
+    assert predictions.ndim == 3
+
+    candidates = np.where(predictions > 0.5)
+    tokens = [line.split() for line in raw_text]
 
     tmp = []
-    for line_num, line in enumerate(raw_text):
-        for word_idx, word in enumerate(line.split()):
+    for sample_idx, token_idx, class_idx in zip(*candidates):
+        # if prediction is not for padding text
+        if len(tokens[sample_idx]) > token_idx:
             tmp.append(
                 {
-                    "word": word,
-                    "pred": predicted_classes[line_num, word_idx],
-                    "confidence": confidence[line_num, word_idx],
-                    "file_name": file_names[line_num],
+                    "word": tokens[sample_idx][token_idx],
+                    "pred": class_idx,
+                    "confidence": predictions[sample_idx, token_idx, class_idx],
+                    "file_name": file_names[sample_idx],
                 }
             )
     return pd.DataFrame.from_records(tmp)
