@@ -7,11 +7,10 @@ import scipy.optimize
 
 from invoice_net.parsers import (
     parses_as_full_date,
-    parses_as_number,
-    parses_as_serial_number,
+    parses_as_amount,
+    parses_as_invoice_number,
 )
 from invoice_net.data_handler import DataHandler
-from invoice_net.metrics import convert_to_classes
 
 
 def __inner_filter_out_mistakes(
@@ -37,8 +36,8 @@ def _filter_out_mistakes(token_predictions: pd.DataFrame) -> pd.DataFrame:
         lambda: lambda x: x
     )
     filters_table["document_date"] = parses_as_full_date
-    filters_table["document_id"] = parses_as_serial_number
-    filters_table["amount_total"] = parses_as_number
+    filters_table["document_id"] = parses_as_invoice_number
+    filters_table["amount_total"] = parses_as_amount
     groups = []
     for prediction, group in token_predictions.groupby("pred"):
         groups.append(
@@ -52,7 +51,7 @@ def _filter_out_mistakes(token_predictions: pd.DataFrame) -> pd.DataFrame:
 
 
 def _get_token_predictions(
-    predictions: np.ndarray, raw_text: Sequence[str], file_names: Sequence[str]
+    predictions: np.ndarray, raw_text: Sequence[str], file_names: pd.Series
 ) -> pd.DataFrame:
     """Take model predictions and flatten to prediction per token."""
     assert predictions.shape[0] == len(raw_text) == len(file_names), (
@@ -73,7 +72,7 @@ def _get_token_predictions(
                     "word": tokens[sample_idx][token_idx],
                     "pred": class_idx,
                     "confidence": predictions[sample_idx, token_idx, class_idx],
-                    "file_name": file_names[sample_idx],
+                    "file_name": file_names.iloc[sample_idx],
                 }
             )
     return pd.DataFrame.from_records(tmp)
