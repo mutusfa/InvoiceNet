@@ -7,6 +7,8 @@ import pandas as pd
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
 
+from invoice_net.label_encoder import LabelEncoder
+
 
 def lazy_property(fn):
     """Make a property lazy-evaluated."""
@@ -108,26 +110,19 @@ class DataHandler:
         "bottom_parses_as_date",
         "bottom_parses_as_number",
     ]
-    human_readable_labels = {
-        0: "unclassified",
-        1: "document_date",
-        2: "document_id",
-        3: "amount_total",
-    }
 
     def __init__(self, data=None, validation_split=0.0, test_split=0.0):
         print("Initializing data handler")
         self.data = data
         self.embed_size = None
         self.fasttext = None
-        self.num_classes = len(self.human_readable_labels)
         self.validation_split = validation_split
         self.test_split = test_split
         self.train_data = {}
         self.validation_data = {}
         self.test_data = {}
 
-    def prepare_data(self, meta_path=None):
+    def prepare_data(self, meta_path=None, label_encoder_path=None):
         """Prepare data for training."""
 
         def get_sentences_embeddings(text):
@@ -222,6 +217,9 @@ class DataHandler:
             self.validation_split,
             self.test_split,
         )
+        self.prepare_labels(label_encoder_path)
+
+    def prepare_labels(self, label_encoder_path):
         try:
             labels = pad_sequences(
                 self.data.labels,
@@ -234,6 +232,17 @@ class DataHandler:
             self.train_data["labels"] = None
             self.validation_data["labels"] = None
         else:
+            self.label_encoder = LabelEncoder()
+            try:
+                self.label_encoder.load(label_encoder_path)
+            except TypeError:
+                pass
+            self.label_encoder.update(labels.reshape(-1))
+            try:
+                self.label_encoder.save(label_encoder_path)
+            except TypeError:
+                pass
+            labels = self.label_encoder.encode(labels)
             labels = to_categorical(labels, num_classes=self.num_classes)
             (
                 self.train_data["labels"],
@@ -249,9 +258,7 @@ class DataHandler:
     def to_human_readable_classes(
         self, predicted_classes: np.array
     ) -> np.array:
-        return np.vectorize(self.human_readable_labels.__getitem__)(
-            predicted_classes
-        )
+        return self.label_encoder.decode(predicted_classes)
 
     def _features(self, data_dict):
         """Return features for nn use."""
@@ -260,6 +267,10 @@ class DataHandler:
         for key in ("labels", *self.debugging_features):
             features.pop(key, None)
         return features
+
+    @lazy_property
+    def num_classes(self):
+        return len(self.label_encoder)
 
     @lazy_property
     def max_ngram_size(self):
