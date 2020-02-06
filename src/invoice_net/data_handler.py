@@ -1,5 +1,6 @@
 """Handles data for nn models."""
 import json
+from pathlib import Path
 
 import fasttext
 import numpy as np
@@ -122,7 +123,7 @@ class DataHandler:
         self.validation_data = {}
         self.test_data = {}
 
-    def prepare_data(self, meta_path=None, label_encoder_path=None):
+    def prepare_data(self, meta_path: Path, label_encoder_path: Path = None):
         """Prepare data for training."""
 
         def get_sentences_embeddings(text):
