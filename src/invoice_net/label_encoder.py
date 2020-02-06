@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -20,7 +19,7 @@ class LabelEncoder:
             self._decoder[label] = value
             return label
 
-    def update(self, values: Iterable) -> LabelEncoder:
+    def update(self, values: Iterable):
         unique = set(values)
         for klass in unique:
             self.add(klass)
