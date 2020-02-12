@@ -20,6 +20,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
+        "currencies",
         "datefinder",
         "Keras",
         "numpy",
