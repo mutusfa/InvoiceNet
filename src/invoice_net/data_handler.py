@@ -1,4 +1,5 @@
 """Handles data for nn models."""
+from itertools import chain
 import json
 from pathlib import Path
 
@@ -220,41 +221,48 @@ class DataHandler:
         )
         self.prepare_labels(label_encoder_path)
 
-    def prepare_labels(self, label_encoder_path):
+    def prepare_labels(self, label_encoder_path=None):
         try:
-            labels = pad_sequences(
-                self.data.labels,
-                maxlen=self.max_ngram_size,
-                padding="post",
-                truncating="post",
-            )
+            labels = self.data.labels.copy()
         except AttributeError:
             print("Found no labels; continuing to work without labels")
             self.train_data["labels"] = None
             self.validation_data["labels"] = None
-        else:
-            self.label_encoder = LabelEncoder()
-            try:
-                self.label_encoder.load(label_encoder_path)
-            except TypeError:
-                pass
-            self.label_encoder.update(labels.reshape(-1))
-            try:
-                self.label_encoder.save(label_encoder_path)
-            except TypeError:
-                pass
-            labels = self.label_encoder.encode(labels)
-            labels = to_categorical(labels, num_classes=self.num_classes)
-            (
-                self.train_data["labels"],
-                self.validation_data["labels"],
-                self.test_data["labels"],
-            ) = split_data(
-                labels,
-                1 - self.validation_split - self.test_split,
-                self.validation_split,
-                self.test_split,
-            )
+            self.test_data["labels"] = None
+            return
+
+        self.label_encoder = LabelEncoder()
+        try:
+            self.label_encoder.load(label_encoder_path)
+        except TypeError:
+            pass
+        self.label_encoder.update(chain.from_iterable(labels))
+        print(f"Encoding labels: {self.label_encoder}")
+        try:
+            self.label_encoder.save(label_encoder_path)
+        except TypeError:
+            pass
+
+        for idx, row in labels.items():
+            labels.loc[idx] = self.label_encoder.encode(row)
+
+        labels = pad_sequences(
+            labels,
+            maxlen=self.max_ngram_size,
+            padding="post",
+            truncating="post",
+        )
+        labels = to_categorical(labels, num_classes=self.num_classes)
+        (
+            self.train_data["labels"],
+            self.validation_data["labels"],
+            self.test_data["labels"],
+        ) = split_data(
+            labels,
+            1 - self.validation_split - self.test_split,
+            self.validation_split,
+            self.test_split,
+        )
 
     def to_human_readable_classes(
         self, predicted_classes: np.array
