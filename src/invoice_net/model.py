@@ -154,13 +154,17 @@ class InvoiceNetInterface:
             labels, num_classes=self.data_handler.num_classes
         )
         class_weights = []
+        categories = np.unique(true_labels_by_word)
         for word_idx in range(true_labels_by_word.shape[1]):
+            labels_for_word = true_labels_by_word[:, word_idx]
+            # We are calculating labels weight for each token position
+            # There may be no ngram where a particular class will be the last
+            # token or that data may be cutoff to validation/testing datasets.
+            # This line adds an assumption that each position may hold each
+            # label and basically prevents sklearn from erroring out.
+            labels_for_word = np.append(labels_for_word, categories)
             class_weights.append(
-                compute_class_weight(
-                    "balanced",
-                    np.unique(true_labels_by_word),
-                    true_labels_by_word[:, word_idx],
-                )
+                compute_class_weight("balanced", categories, labels_for_word)
             )
         class_weights = np.array(class_weights)
         print(f"Using class weights:\n{class_weights}")
