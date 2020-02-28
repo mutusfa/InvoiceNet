@@ -70,6 +70,12 @@ parent_parser.add_argument(
     default=10,
     help="callbacks will be called every callback_frequency epochs",
 )
+parent_parser.add_argument(
+    "--label_encoder_path",
+    type=Path,
+    default=Path("./data/label_encoder.json"),
+    help="path to file to store information how to encode labels",
+)
 
 
 def get_data_for_nn(config):

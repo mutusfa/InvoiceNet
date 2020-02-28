@@ -33,7 +33,7 @@ def main(config=None):
         data_handler.validation_split = 0.25
         data_handler.train_split = 0.1
 
-    data_handler.prepare_data(config.meta_path)
+    data_handler.prepare_data(config.meta_path, config.label_encoder_path)
     net = InvoiceNet(data_handler=data_handler, config=config)
 
     if config.mode == "train":

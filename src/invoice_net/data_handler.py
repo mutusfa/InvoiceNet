@@ -234,18 +234,24 @@ class DataHandler:
         self.label_encoder = LabelEncoder()
         try:
             self.label_encoder.load(label_encoder_path)
-        except TypeError:
+            print(f"Loaded label encoder from {label_encoder_path}")
+        except (TypeError, FileNotFoundError):
             pass
         self.label_encoder.update(chain.from_iterable(labels))
         print(f"Encoding labels: {self.label_encoder}")
         try:
             self.label_encoder.save(label_encoder_path)
+            print(f"Saved label encoder to {label_encoder_path}")
         except TypeError:
             pass
 
         for idx, row in labels.items():
             labels.loc[idx] = self.label_encoder.encode(row)
 
+        print(
+            f"Padding labels with 0, "
+            f"decoding to {self.label_encoder.decode(0)}"
+        )
         labels = pad_sequences(
             labels,
             maxlen=self.max_ngram_size,
@@ -263,6 +269,14 @@ class DataHandler:
             self.validation_split,
             self.test_split,
         )
+
+    @property
+    def human_readable_labels(self):
+        raise UserWarning(
+            "Using human_readable_labels is deprecated, use"
+            "to_human_readable_classes instead"
+        )
+        return self.label_encoder._decoder
 
     def to_human_readable_classes(
         self, predicted_classes: np.array
