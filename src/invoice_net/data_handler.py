@@ -1,5 +1,6 @@
 """Handles data for nn models."""
-from itertools import chain
+from typing import Any, Sequence
+import itertools
 import json
 from pathlib import Path
 
@@ -10,6 +11,12 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
 
 from invoice_net.label_encoder import LabelEncoder
+
+
+def to_array(sequences: Sequence, pad_value: Any = 0.0) -> np.ndarray:
+    return np.array(
+        list(itertools.zip_longest(*sequences, fillvalue=pad_value))
+    ).T
 
 
 def lazy_property(fn):
@@ -237,7 +244,7 @@ class DataHandler:
             print(f"Loaded label encoder from {label_encoder_path}")
         except (TypeError, FileNotFoundError):
             pass
-        self.label_encoder.update(chain.from_iterable(labels))
+        self.label_encoder.update(itertools.chain.from_iterable(labels))
         print(f"Encoding labels: {self.label_encoder}")
         try:
             self.label_encoder.save(label_encoder_path)
@@ -245,19 +252,15 @@ class DataHandler:
         except TypeError:
             pass
 
-        for idx, row in labels.items():
-            labels.loc[idx] = self.label_encoder.encode(row)
-
         print(
             f"Padding labels with 0, "
             f"decoding to {self.label_encoder.decode(0)}"
         )
-        labels = pad_sequences(
-            labels,
-            maxlen=self.max_ngram_size,
-            padding="post",
-            truncating="post",
-        )
+
+        labels = to_array(labels, pad_value=self.label_encoder.decode(0),)
+
+        labels = self.label_encoder.encode(labels)
+
         labels = to_categorical(labels, num_classes=self.num_classes)
         (
             self.train_data["labels"],
@@ -272,10 +275,6 @@ class DataHandler:
 
     @property
     def human_readable_labels(self):
-        raise UserWarning(
-            "Using human_readable_labels is deprecated, use"
-            "to_human_readable_classes instead"
-        )
         return self.label_encoder._decoder
 
     def to_human_readable_classes(
