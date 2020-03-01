@@ -26,10 +26,18 @@ class LabelEncoder:
         return self
 
     def encode(self, values: Sequence) -> np.ndarray:
-        return np.vectorize(self._encoder.__getitem__)(values)
+        values = np.asarray(values)
+        encoded = np.zeros(values.shape, dtype=np.int)
+        for label, encoding in self._encoder.items():
+            encoded[values == label] = encoding
+        return encoded
 
-    def decode(self, values: Sequence[int]) -> np.ndarray:
-        return np.vectorize(self._decoder.__getitem__)(values)
+    def decode(self, values: Sequence) -> np.ndarray:
+        values = np.asarray(values)
+        decoded = np.zeros(values.shape, dtype=object)
+        for label, decoding in self._decoder.items():
+            decoded[values == label] = decoding
+        return decoded
 
     def save(self, path: Path) -> None:
         with open(path, "w") as f:
