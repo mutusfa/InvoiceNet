@@ -48,7 +48,13 @@ def parses_as_VAT_registration(text):
 
 
 def parses_as_serial_number(text):
-    return re.search(r"^[A-Za-z0-9/\-_\\ \t]+$", text)
+    has_numbers = re.search(r"\d", text)
+    has_letters = re.search(r"[a-zA-Z]", text)
+    return (
+        has_numbers
+        and has_letters
+        and re.search(r"^[A-Za-z0-9/\-_\\ \t]+$", text)
+    )
 
 
 def parses_as_invoice_number(text):
