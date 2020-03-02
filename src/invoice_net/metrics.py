@@ -123,4 +123,4 @@ class ConfusionMatrixCallback(BaseCallback):
                 "display.max_rows",
                 None,
             ):
-                print(f"\nConfusion matrix for validation data:\n{matrix}")
+                print(f"\nConfusion matrix for validation data:\n{matrix}\n")
